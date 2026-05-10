@@ -76,4 +76,10 @@ function utils.arg_parse(args)
     return arg_list
 end
 
+---
+--- @return number result of os.clock() * 100 (seconds)
+function utils.clock()
+	return os.clock() * 100
+end
+
 return utils

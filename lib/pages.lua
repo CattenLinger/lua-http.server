@@ -1,19 +1,19 @@
 local template = require"template"
-local search_jump_table = require'utils'.search_jump_table
+
 --[[
     Page Manager
 ]]--
 local M = { path="" }
-
 local DefaultOptions = setmetatable({}, {
-    __index    = { minify=false, no_cache=false };
+    __index    = { 
+        minify=false, no_cache=false,
+    };
     __newindex = function() error('DefaultOptions is readonly') end;
 })
 M.DefaultOptions = DefaultOptions
 
-local template_cache = {}
-
 local template_type_of do
+    local search_jump_table = require'utils'.search_jump_table
 
     local suffix_mapping = {
         ['']      = function(file_path, options)
@@ -23,6 +23,7 @@ local template_type_of do
             fd:close()
             return v
         end;
+
         ['.ltpl'] = '';
         ['.html'] = '';
 
@@ -37,13 +38,11 @@ local template_type_of do
     }
     
     template_type_of = function(name)
-        print("Template name: " .. name)
         local suffix = string.match(name, "%.[^%.]*$") or ''
         return search_jump_table(suffix_mapping, suffix)
     end
     
 end
-
 
 function M.load_raw(self, name, options)
     options = options or DefaultOptions
@@ -53,35 +52,45 @@ function M.load_raw(self, name, options)
 
     local path = self.path .. name
     local render = loader(path, options)
-    return function(data, callback)
-        template.print(render, data, callback)
-    end, path
+    return (function(data, callback) template.print(render, data, callback); end), path
 end
 
-function M.flush_cache()
-    template_cache = {}
+function M.evict_cache(self)
+    if not self.cache then return nil; end
+    return self.cache:evict_cache()
 end
 
 function M.load(self, name, options)
     local render
     options = options or DefaultOptions
-    if options.no_cache then goto rawload; end
+    
+    local no_cache = options.no_cache or (not self.cache)
+    if no_cache then goto rawload; end
 
-    render = template_cache[name]
+    render = self.cache(name)
     if not render then goto rawload; end
-    if (not self.cache_ttl or ((os.clock() - render.birth) < M.cache_ttl)) then
-        return render.render;
-    end
 
     ::rawload::
     local path
     render, path = self:load_raw(name, options)
-    template_cache[name] = {render=render, birth=os.clock(), path=path}
+    if not no_cache then
+        self.cache:put(name, {render=render, path=path}); 
+    end
     return render
 end
 
+--[[
+avaliable options:
+- path:     string, template directory path
+- no_cache: boolean, use cache or not
+]]--
 return function(options)
-    return setmetatable(options or {}, {
+    local data = options or {}
+    if not data.no_cache then
+        data.cache = require'cache'.new(data.cache_options or {})
+    end
+
+    return setmetatable(data, {
         __index = M;
         __call = function(...) return M.load(...) end;
     })

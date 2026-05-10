@@ -44,95 +44,101 @@ local pages = require"pages" {
 local template = require"template"
 local json = require"json"
 
-local handlers = {
-	['directory'] = function(server, stream, context)
-		local headers, method = context.headers, context.method
-		local real_path, path = context.real_path, context.path
+--[[
+	HTTP Handlers
+]]--
+local handlers = {};
 
-		-- directory listing
-		path = path:gsub("/+$", "") .. "/"
-		headers:upsert(":status", "200")
-		headers:append("content-type", "text/html; charset=utf-8")
-		assert(stream:write_headers(headers, method == "HEAD"))
-		
-		if req_method == 'HEAD' then return; end
+function handlers.directory (server, stream, context)
+	local headers, method = context.headers, context.method
+	local real_path, path = context.real_path, context.path
 
-		local files = {}
-		local model = { path=path, files=files }
-		
-		-- lfs doesn't provide a way to get an errno for attempting to open a directory
-		-- See https://github.com/keplerproject/luafilesystem/issues/87
-		for filename in lfs.dir(real_path) do
-			-- Exclude parent directory entry listing from top level
-			if (filename == ".." and path == "/") then goto continue; end
+	-- directory listing
+	path = path:gsub("/+$", "") .. "/"
+	headers:upsert(":status", "200")
+	headers:append("content-type", "text/html; charset=utf-8")
+	assert(stream:write_headers(headers, method == "HEAD"))
+	
+	if req_method == 'HEAD' then return; end
 
-			local stats = lfs.attributes(real_path .. "/" .. filename)
-			if stats.mode == "directory" then
-				filename = filename .. "/"
-			end
+	local files = {}
+	local model = { path=path, files=files }
+	
+	-- lfs doesn't provide a way to get an errno for attempting to open a directory
+	-- See https://github.com/keplerproject/luafilesystem/issues/87
+	for filename in lfs.dir(real_path) do
+		-- Exclude parent directory entry listing from top level
+		if (filename == ".." and path == "/") then goto continue; end
 
-			table.insert(files, {
-				css_cls  = stats.mode:gsub("%s", "-");
-				href     = http_util.encodeURI(path .. filename);
-				filename = filename;
-				size     = stats.size;
-				size_h   = human(stats.size);
-				time     = os.date("!%Y-%m-%d %X", stats.modification)
-			})
-			::continue::
+		local stats = lfs.attributes(real_path .. "/" .. filename)
+		if stats.mode == "directory" then
+			filename = filename .. "/"
 		end
 
-		pages'index.ltpl'(model, function(s) assert(stream:write_chunk(s)); end)
-		stream:write_chunk('\n', true)
-	end;
-
-	['file'] = function(server, stream, context)
-		local real_path = context.real_path
-		local headers, method = context.headers, context.method
-
-		local fd, err, errno = io.open(real_path, "rb")
-		local code
-		if not fd then
-			if errno == ce.ENOENT then
-				code = "404"
-			elseif errno == ce.EACCES then
-				code = "403"
-			else
-				code = "503"
-			end
-			headers:upsert(":status", code)
-			headers:append("content-type", "text/html?charset=utf8")
-			assert(stream:write_headers(headers, method == "HEAD"))
-			if method == "HEAD" then return end
-			
-			pages'error.ltpl'({ path=context.path, code=code }, function(e) stream:write_chunk(e) end)
-			stream:write_chunk('\n', true)
-			return
-		end
-		
-		headers:upsert(":status", "200")
-		local mime_type = mime_mapping(context.real_path)
-		log("Got a file: " .. mime_type)
-		headers:append("content-type", mime_type)
-		assert(stream:write_headers(headers, method == "HEAD"))
-		if req_method ~= "HEAD" then
-			assert(stream:write_body_from_file(fd))
-		end
-	end;
-
-	[''] = function(server, stream, context)
-		local headers = context.headers
-		headers:upsert(":status", "404")
-		assert(stream:write_headers(headers, false))
-		pages'error.ltpl'({ path=context.path, code="404" }, function(e) stream:write_chunk(e) end)
-		stream:write_chunk('\n', true)
+		table.insert(files, {
+			css_cls  = stats.mode:gsub("%s", "-");
+			href     = http_util.encodeURI(path .. filename);
+			filename = filename;
+			size     = stats.size;
+			size_h   = human(stats.size);
+			time     = os.date("!%Y-%m-%d %X", stats.modification)
+		})
+		::continue::
 	end
-}
+
+	pages'index.ltpl'(model, function(s) assert(stream:write_chunk(s)); end)
+	stream:write_chunk('\n', true)
+end
+
+function handlers.file (server, stream, context)
+	local real_path = context.real_path
+	local headers, method = context.headers, context.method
+
+	local fd, err, errno = io.open(real_path, "rb")
+	local code
+	if not fd then
+		if errno == ce.ENOENT then
+			code = "404"
+		elseif errno == ce.EACCES then
+			code = "403"
+		else
+			code = "503"
+		end
+		headers:upsert(":status", code)
+		headers:append("content-type", "text/html?charset=utf8")
+		assert(stream:write_headers(headers, method == "HEAD"))
+		if method == "HEAD" then return end
+		
+		pages'error.ltpl'({ path=context.path, code=code }, function(e) stream:write_chunk(e) end)
+		stream:write_chunk('\n', true)
+		return
+	end
+	
+	headers:upsert(":status", "200")
+	local mime_type = mime_mapping(context.real_path)
+	log("Got a file: " .. mime_type)
+	headers:append("content-type", mime_type)
+	assert(stream:write_headers(headers, method == "HEAD"))
+	if req_method ~= "HEAD" then
+		assert(stream:write_body_from_file(fd))
+	end
+end
+
+function handlers.__default__(server, stream, context)
+	local headers = context.headers
+	headers:upsert(":status", "404")
+	assert(stream:write_headers(headers, false))
+	pages'error.ltpl'({ path=context.path, code="404" }, function(e) stream:write_chunk(e) end)
+	stream:write_chunk('\n', true)
+end
+-- empty string Alias to handler '__deafult__'
+handlers[''] = '__deafult__'
 
 --
 -- Controller
 --
 local new_headers = require "http.headers".new
+local search_jump_table = require'utils'.search_jump_table
 local dir = CONFIG.root_path
 local function reply(myserver, stream) -- luacheck: ignore 212
 	-- Read in headers
@@ -164,7 +170,7 @@ local function reply(myserver, stream) -- luacheck: ignore 212
 		path=path; real_path=real_path;
 	}
 	local file_type = lfs.attributes(real_path, "mode")
-	local handler = handlers[file_type or '']
+	local handler = search_jump_table(handlers, file_type or '', 3)
 	if handler then 
 		handler(myserver, stream, context)
 		return
@@ -189,6 +195,7 @@ end
 --
 local cqueues = require'cqueues'
 local cq = cqueues.new()
+
 local myserver = assert(http_server.listen {
 	host = CONFIG.host[1];
 	port = CONFIG.port;
@@ -205,6 +212,16 @@ do
 	log("Now listening on port %d", bound_port)
 end
 
+cq:wrap(function()
+	log("Cache evict job started.")
+	::begin_loop::
+	
+	cqueues.sleep(1)
+	local cache_evict_count = pages:evict_cache()
+	if cache_evict_count > 0 then log("%d page cache evicted.", cache_evict_count); end
+
+	goto begin_loop
+end)
+
 -- Start the main server loop
-local _, e = pcall(function() return myserver:loop(); end)
-log('Server stoped: %s', e)
+assert(myserver:loop())
