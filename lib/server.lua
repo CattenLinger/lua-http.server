@@ -1,11 +1,16 @@
-#!/usr/bin/env lua
---[=[
-This example serves a file/directory browser
-It defaults to serving the current directory.
 
-Usage: lua examples/serve_dir.lua [<port> [<dir>]]
-]=]--
-package.path = package.path .. ';./lib/?.lua;./lib/?/init.lua'
+--[[
+    Entry of the http server
+]]--
+do
+    local home = os.getenv("LUA_HTTP_SERVER_HOME")
+    if not home or home == '' then 
+        io.stderr:write('LUA_HTTP_SERVER_HOME missing.', '\n')
+        os.exit(1)
+    end
+    package.path = package.path .. (';%s/lib/?.lua;%s/lib/?/init.lua;'):format(home, home)
+end
+
 local log = require"utils".simple_log()
 log('Lua Path: %s', package.path)
 
@@ -16,10 +21,9 @@ local http_util = require "http.util"
 local http_version = require "http.version"
 
 local lfs = require "lfs"
+
 local lpeg = require "lpeg"
 local uri_patts = require "lpeg_patterns.uri"
-
-
 local uri_reference = uri_patts.uri_reference * lpeg.P(-1)
 
 local function log_request(req_headers, stream)
@@ -33,22 +37,71 @@ local function log_request(req_headers, stream)
 	)
 end
 
-local pages = require"pages" {  path='pages/' }
+--[[
+    Corotuine
+]]--
+local cqueues = require'cqueues'
+local cq = cqueues.new()
+
+--[[
+	Cache cleaner
+]]--
+do
+	local CacheObjectProviders = {}
+    local Cache = require'cache'
+    function _G.RegisterCacheCleaner(tb)
+        local name, getter = table.unpack(tb)
+        local c = getter()
+        if not Cache.is(c) then error("Cache "..name.." is not a cache instance."); end
+        table.insert(CacheObjectProviders, { name, getter });
+    end
+
+    local gc = false
+
+	cq:wrap(function()
+		log("Cache evict job started.")
+		::begin_loop::
+		cqueues.sleep(1)
+
+		for _, pv in ipairs(CacheObjectProviders) do
+			local name, provider = table.unpack(pv)
+			local c = provider()
+			if not c then goto continue; end
+			local cache_evict_count = c:evict_cache()
+			if cache_evict_count <= 0 then goto continue; end
+			log("%d %s cache evicted.", cache_evict_count, name);
+			gc = true
+			::continue::
+		end
+		goto begin_loop
+	end)
+
+    cq:wrap(function()
+        log("GC trigger job stared.")
+        ::begin_loop::
+        cqueues.sleep(10)
+        if not gc then goto begin_loop; end
+
+        gc = false; 
+        collectgarbage(); 
+        log("GC triggered."); 
+        goto begin_loop
+    end)
+end
 
 --[[
 	HTTP Handlers
 ]]--
 local handlers = require'handlers' {
-	path = 'handlers/';
-	no_cache = true;
-	skip_config = true;
+	path        = CONFIG.handler_dir;
+	no_cache    = CONFIG.no_handler_cache;
+	skip_config = CONFIG.no_handler_config;
+
 	handler_env = setmetatable({ 
-		-- Template Engine
-		pages = pages;
-		-- App Configuration
-		CONFIG = CONFIG;
+		CONFIG = CONFIG; -- App Configuration
 	}, { __index=_ENV })
 };
+RegisterCacheCleaner { 'handlers', function() return handlers.cache; end };
 
 --
 -- Controller
@@ -103,37 +156,7 @@ end
 --
 -- Server
 --
-local cqueues = require'cqueues'
-local cq = cqueues.new()
 
---[[
-	Cache cleaner
-]]--
-do
-	local CacheObjectProviders = { 
-		{ 'pages',    function() return pages.cache;    end };
-		{ 'handlers', function() return handlers.cache; end };
-	}
-
-	cq:wrap(function()
-		log("Cache evict job started.")
-		::begin_loop::
-		cqueues.sleep(1)
-		local gc = false
-		for _, pv in ipairs(CacheObjectProviders) do
-			local name, provider = table.unpack(pv)
-			local c = provider()
-			if not c then goto continue; end
-			local cache_evict_count = c:evict_cache()
-			if cache_evict_count <= 0 then goto continue; end
-			log("%d %s cache evicted.", cache_evict_count, name);
-			gc = true
-			::continue::
-		end
-		if gc then collectgarbage(); end
-		goto begin_loop
-	end)
-end
 
 local myserver = assert(http_server.listen {
 	host = CONFIG.host[1];
@@ -151,4 +174,10 @@ do -- Manually call :listen() so that we are bound before calling :localname()
 end
 
 -- Start the main server loop
-assert(myserver:loop())
+if not CONFIG.debug then
+    local rs, e = pcall(function() return myserver:loop(); end)
+    if e then log("Server exited: %s", e); end
+else
+    log("Debug mode is enabled.")
+    assert(myserver:loop())
+end

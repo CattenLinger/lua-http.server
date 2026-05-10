@@ -1,7 +1,7 @@
 local search_jump_table = require'utils'.search_jump_table
 local log = require'utils'.simple_log()
 
-local M = { path="", mapping = {} }
+local M = { path="handlers/", mapping = {} }
 
 local function new_env(init_content)
     local data = init_content or {}
@@ -20,7 +20,8 @@ local pack = table.pack
 local unpack = table.unpack
 
 function M.dispatch(self, name, ...)
-
+    local name = name or ''
+    if name == '' then name = 'default'; end
     local value do 
         local cache = self.cache
         if cache then value = cache(name); end
@@ -35,21 +36,12 @@ function M.dispatch(self, name, ...)
     return value[1](...)
 end
 
-local CfgEnv = new_env({ 
-    routing=function(t) self.routing = t; end 
-})
-
 local function M_init(self)
     if self.skip_config then return self; end
 
-    local env = setmetatable({}, { __index=CfgEnv })
-    local f_conf, err = loadfile(self.path..'.config.lua', 't', env)
-    if f_conf then 
-        local dispatch_converter = f_conf();
-        env = setmetatable(env, nil)
-        self.config = env
-    else
-        self.config = {}
+    self.handler_env = new_env(self.handler_env or {})
+    local f_conf, err = loadfile(self.path..'.config.lua', 't', self.handler_env)
+    if f_conf then f_conf(); else
         log('Ignore .config.lua file loading: %s', err); 
     end
 

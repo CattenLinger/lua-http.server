@@ -1,4 +1,3 @@
-local mime_mapping = require'mime'
 local ce = require "cqueues.errno"
 local log = require"utils".simple_log()
 
@@ -27,7 +26,9 @@ return function (server, stream, context)
 	end
 	
 	headers:upsert(":status", "200")
-	local mime_type = mime_mapping(context.real_path)
+	
+    local mime_type = mime_mapping(context.real_path)
+
 	log("Got a file: " .. mime_type)
 	headers:append("content-type", mime_type)
 	assert(stream:write_headers(headers, method == "HEAD"))

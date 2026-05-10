@@ -70,7 +70,7 @@ end
     Static Methods
 ]]--
 function Cache.is(self)
-    return self.__cls__ == Cache_proto.__cls__
+    return self.__cls__ == Cache.__cls__
 end
 
 function Cache.new(options)

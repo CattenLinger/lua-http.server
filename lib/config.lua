@@ -75,10 +75,20 @@ local function arg_process(arg_list, cfg, spec_tbl)
 end
 
 local DefaultConfig = {
+    binary_home = os.getenv('LUA_HTTP_SERVER_HOME');
+
     host = {'localhost'};
     port = '8000';
-    root_path = '.'
+
+    root_path   = '.';
+    handler_dir = 'handlers/';
 }
+local CfgProto = {}
+do
+    function CfgProto.resolve(path)
+    
+    end
+end
 
 local arg_meta = {
     {
@@ -100,6 +110,38 @@ local arg_meta = {
         ['-d'] = '--root';
         ['-p'] = '--port';
         ['-h'] = '--host';
+
+        ['--handler-path'] = {
+            desc = 'handler folder path';
+            size = { 1, 1 }, set_prop = { 'handler_dir' }
+        };
+        ['-dH'] = '--handler-path';
+
+        ['--no-page-cache'] = {
+            desc = 'Disable page caching';
+            size = { 0 }, set_prop = { 'no_page_cache', true }
+        };
+        
+        ['--no-handler-cache'] = {
+            desc = 'Disable handler caching';
+            size = { 0 }, set_prop = { 'no_handler_cache', true }
+        };
+
+        ['--no-handler-config'] = {
+            desc = 'Disable handler config';
+            size = { 0 }, set_prop = { 'no_handler_config', true }
+        };
+        
+
+        ['-nCP'] = '--no-page-cache';
+        ['-nCH'] = '--no-handler-cache';
+        ['-nPH'] = '--no-handler-config';
+
+        ['--debug'] = {
+            desc = 'Enable all debug features';
+            size = { 0 }, set_prop = { 'debug', true }
+        };
+        ['-d'] = '--debug'
     };
     function (config)
 

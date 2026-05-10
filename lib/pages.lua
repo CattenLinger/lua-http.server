@@ -3,7 +3,7 @@ local template = require"template"
 --[[
     Page Manager
 ]]--
-local M = { path="" }
+local M = { path="pages/" }
 local DefaultOptions = setmetatable({}, {
     __index    = { 
         minify=false, no_cache=false,
