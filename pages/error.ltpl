@@ -1,0 +1,33 @@
+<? local page_title, title, description = '', '', ''; ?>
+<? 
+local function notfound() 
+    title = 'Not found';
+    page_title = "Not found: " .. path;
+    description = "The content you request is not exists.";
+end
+
+local function srv_error()
+    title = 'Server error';
+    page_title = 'Server Error';
+    description = 'Server could not finish your request due to an error.';
+end
+
+local function denied()
+    title = 'Denied';
+    page_title = 'Access denied';
+    description = 'Server cannot finish the request due to insufficent premission.';
+end
+
+local handler = ({ ['404'] = notfound; ['503'] = srv_error; ['403'] = denied; })[code or ''];
+if handler then handler() end;
+?>
+<!DOCTYPE html>
+<html>
+<head>
+	<title><% title %></title>
+</head>
+<body>
+    <h1><% page_title %></h1>
+    <p><% description %></p>
+</body>
+</html>
