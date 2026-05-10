@@ -6,6 +6,9 @@ It defaults to serving the current directory.
 Usage: lua examples/serve_dir.lua [<port> [<dir>]]
 ]=]--
 package.path = package.path .. ';./lib/?.lua;./lib/?/init.lua'
+local log = require"utils".simple_log()
+log('Lua Path: %s', package.path)
+
 local CONFIG = require'config'(arg)
 
 local http_server = require "http.server"
@@ -22,11 +25,10 @@ local uri_reference = uri_patts.uri_reference * lpeg.P(-1)
 local default_server = string.format("%s/%s", http_version.name, http_version.version)
 
 local human = require"utils".human
-local log = require"utils".simple_log()
+
 local function log_request(req_headers, stream)
 	return log(
-		'[%s] "%s %s HTTP/%g"  "%s" "%s"',
-		os.date("%d/%b/%Y:%H:%M:%S %z"),
+		'"%s %s HTTP/%g"  "%s" "%s"',
 		req_headers:get":method" or "",
 		req_headers:get":path" or "",
 		stream.connection.version,
@@ -174,6 +176,14 @@ local function reply(myserver, stream) -- luacheck: ignore 212
 	
 end
 
+local function onerror(myserver, context, op, err, errno)
+	local msg = op .. " on " .. tostring(context) .. " failed"
+	if err then
+		msg = msg .. ": " .. tostring(err)
+	end
+	assert(io.stderr:write(msg, "\n"))
+end
+
 --
 -- Server
 --
@@ -184,13 +194,7 @@ local myserver = assert(http_server.listen {
 	port = CONFIG.port;
 	max_concurrent = 100;
 	onstream = reply;
-	onerror = function(myserver, context, op, err, errno) -- luacheck: ignore 212
-		local msg = op .. " on " .. tostring(context) .. " failed"
-		if err then
-			msg = msg .. ": " .. tostring(err)
-		end
-		assert(io.stderr:write(msg, "\n"))
-	end;
+	onerror = onerror;
 	cq = cq;
 })
 
@@ -198,8 +202,9 @@ local myserver = assert(http_server.listen {
 assert(myserver:listen())
 do
 	local bound_port = select(3, myserver:localname())
-	assert(io.stderr:write(string.format("Now listening on port %d\n", bound_port)))
+	log("Now listening on port %d", bound_port)
 end
 
 -- Start the main server loop
-myserver:loop()
+local _, e = pcall(function() return myserver:loop(); end)
+log('Server stoped: %s', e)

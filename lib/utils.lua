@@ -4,7 +4,7 @@ local utils = {}
 utils.simple_log = function(target)
 	local stream = target or io.stderr
 	if not stream.write then error("log constructor target must be a stream") end
-	function write(...) stream:write(...); end
+	function write(...) stream:write('[', os.date("%d/%b/%Y:%H:%M:%S %z") ,'] ' ,...); end
 
 	return function(leading, ...)
 		if not leading then return write('\n') end
