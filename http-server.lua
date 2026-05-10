@@ -33,15 +33,18 @@ local function log_request(req_headers, stream)
 	)
 end
 
+local pages = require"pages" {  path='pages/' }
+
 --[[
 	HTTP Handlers
 ]]--
 local handlers = require'handlers' {
 	path = 'handlers/';
 	no_cache = true;
+	skip_config = true;
 	handler_env = setmetatable({ 
 		-- Template Engine
-		pages = require"pages" {  path='pages/' };
+		pages = pages;
 		-- App Configuration
 		CONFIG = CONFIG;
 	}, { __index=_ENV })

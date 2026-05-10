@@ -1,5 +1,6 @@
 local mime_mapping = require'mime'
 local ce = require "cqueues.errno"
+local log = require"utils".simple_log()
 
 return function (server, stream, context)
 	local real_path = context.real_path
