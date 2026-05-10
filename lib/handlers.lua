@@ -16,27 +16,42 @@ local function M_load_handler(self, name, ...)
     return fn(...), e
 end
 
+local pack = table.pack
+local unpack = table.unpack
+
 function M.dispatch(self, name, ...)
-    if name == '' then name = 'default'; end
 
-    local cache = self.cache
-    if not cache then goto loadraw; else
-        local cached = cache(name)
-        if cached then return cached[1](...); end
+    local value do 
+        local cache = self.cache
+        if cache then value = cache(name); end
+        if value then goto end_load; end
+
+        local fn, env = M_load_handler(self, name)
+        value = { fn, env }
+        if cache then cache:put(name, cached) end
+        ::end_load::
     end
-    ::loadraw::
 
-    local fn, env = M_load_handler(self, name)
-    if cache then cache:put(name, { fn, env }) end
-    return fn(...)
+    return value[1](...)
 end
+
+local CfgEnv = new_env({ 
+    routing=function(t) self.routing = t; end 
+})
 
 local function M_init(self)
     if self.skip_config then return self; end
 
-    local env = new_env({ routing=function(t) self.routing = t; end })
+    local env = setmetatable({}, { __index=CfgEnv })
     local f_conf, err = loadfile(self.path..'.config.lua', 't', env)
-    if f_conf then f_conf(); else log('Ignore .config.lua file loading: %s', err); end
+    if f_conf then 
+        local dispatch_converter = f_conf();
+        env = setmetatable(env, nil)
+        self.config = env
+    else
+        self.config = {}
+        log('Ignore .config.lua file loading: %s', err); 
+    end
 
     return self
 end

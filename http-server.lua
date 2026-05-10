@@ -14,17 +14,13 @@ local CONFIG = require'config'(arg)
 local http_server = require "http.server"
 local http_util = require "http.util"
 local http_version = require "http.version"
-local ce = require "cqueues.errno"
+
 local lfs = require "lfs"
 local lpeg = require "lpeg"
 local uri_patts = require "lpeg_patterns.uri"
-local mime_mapping = require'mime'
+
 
 local uri_reference = uri_patts.uri_reference * lpeg.P(-1)
-
-local default_server = string.format("%s/%s", http_version.name, http_version.version)
-
-local human = require"utils".human
 
 local function log_request(req_headers, stream)
 	return log(
@@ -37,29 +33,28 @@ local function log_request(req_headers, stream)
 	)
 end
 
-local pages = require"pages" { 
-	path='pages/'
-}
-
-local template = require"template"
-local json = require"json"
-
 --[[
 	HTTP Handlers
 ]]--
 local handlers = require'handlers' {
-	path='handlers/';
-	no_cache=true;
-	handler_env=setmetatable({ pages=pages }, { __index=_ENV })
+	path = 'handlers/';
+	no_cache = true;
+	handler_env = setmetatable({ 
+		-- Template Engine
+		pages = require"pages" {  path='pages/' };
+		-- App Configuration
+		CONFIG = CONFIG;
+	}, { __index=_ENV })
 };
 
 --
 -- Controller
 --
 local new_headers = require "http.headers".new
-local search_jump_table = require'utils'.search_jump_table
 local dir = CONFIG.root_path
+local default_server = string.format("%s/%s", http_version.name, http_version.version)
 local function reply(myserver, stream) -- luacheck: ignore 212
+
 	-- Read in headers
 	local req_headers = assert(stream:get_headers())
 	local req_method  = req_headers:get":method"
@@ -108,6 +103,35 @@ end
 local cqueues = require'cqueues'
 local cq = cqueues.new()
 
+--[[
+	Cache cleaner
+]]--
+do
+	local CacheObjectProviders = { 
+		{ 'pages',    function() return pages.cache;    end };
+		{ 'handlers', function() return handlers.cache; end };
+	}
+
+	cq:wrap(function()
+		log("Cache evict job started.")
+		::begin_loop::
+		cqueues.sleep(1)
+		local gc = false
+		for _, pv in ipairs(CacheObjectProviders) do
+			local name, provider = table.unpack(pv)
+			local c = provider()
+			if not c then goto continue; end
+			local cache_evict_count = c:evict_cache()
+			if cache_evict_count <= 0 then goto continue; end
+			log("%d %s cache evicted.", cache_evict_count, name);
+			gc = true
+			::continue::
+		end
+		if gc then collectgarbage(); end
+		goto begin_loop
+	end)
+end
+
 local myserver = assert(http_server.listen {
 	host = CONFIG.host[1];
 	port = CONFIG.port;
@@ -122,29 +146,6 @@ do -- Manually call :listen() so that we are bound before calling :localname()
 	local bound_port = select(3, myserver:localname())
 	log("Now listening on port %d", bound_port)
 end
-
-local CacheObjectProviders = { 
-	{ 'pages',    function() return pages.cache;    end };
-	{ 'handlers', function() return handlers.cache; end };
-}
-cq:wrap(function()
-	log("Cache evict job started.")
-
-	::begin_loop::
-	cqueues.sleep(1)
-	local gc = false
-	for _, pv in ipairs(CacheObjectProviders) do
-		local name, provider = table.unpack(pv)
-		local c = provider()
-		if not c then goto continue; end
-		local cache_evict_count = c:evict_cache()
-		if cache_evict_count <= 0 then goto continue; end
-		log("%d %s cache evicted.", cache_evict_count, name);
-		gc = true
-		::continue::
-	end
-	goto begin_loop
-end)
 
 -- Start the main server loop
 assert(myserver:loop())
