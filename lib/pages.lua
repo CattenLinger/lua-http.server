@@ -16,6 +16,7 @@ local template_type_of do
     local search_jump_table = require'utils'.search_jump_table
 
     local suffix_mapping = {
+        -- Text Template
         ['']      = function(file_path, options)
             local fd, e = io.open(file_path, 'r')
             if not fd then error('fail to open text template: ' .. tostring(e)); end
@@ -23,18 +24,17 @@ local template_type_of do
             fd:close()
             return v
         end;
-
         ['.ltpl'] = '';
         ['.html'] = '';
 
+        -- Function Template
         ['.lua']  = function (file_path)
-            local fd, e = io.open(file_path, 'r')
-            if not fd then error('fail to open script template: ' .. tostring(e)); end
+            local v, e = loadfile(file_path, 't')()
+            if not v then error('fail to open script template: ' .. tostring(e)); end
             print('Loaded compiled lua script: ' .. file_path)
-            local v = load(fd:read'a', file_path, 't')()
-            fd:close()
             return v
         end;
+        ['.luac'] = '.lua';
     }
     
     template_type_of = function(name)
@@ -63,7 +63,7 @@ end
 function M.load(self, name, options)
     local render
     options = options or DefaultOptions
-    
+
     local no_cache = options.no_cache or (not self.cache)
     if no_cache then goto rawload; end
 

@@ -47,92 +47,11 @@ local json = require"json"
 --[[
 	HTTP Handlers
 ]]--
-local handlers = {};
-
-function handlers.directory (server, stream, context)
-	local headers, method = context.headers, context.method
-	local real_path, path = context.real_path, context.path
-
-	-- directory listing
-	path = path:gsub("/+$", "") .. "/"
-	headers:upsert(":status", "200")
-	headers:append("content-type", "text/html; charset=utf-8")
-	assert(stream:write_headers(headers, method == "HEAD"))
-	
-	if req_method == 'HEAD' then return; end
-
-	local files = {}
-	local model = { path=path, files=files }
-	
-	-- lfs doesn't provide a way to get an errno for attempting to open a directory
-	-- See https://github.com/keplerproject/luafilesystem/issues/87
-	for filename in lfs.dir(real_path) do
-		-- Exclude parent directory entry listing from top level
-		if (filename == ".." and path == "/") then goto continue; end
-
-		local stats = lfs.attributes(real_path .. "/" .. filename)
-		if stats.mode == "directory" then
-			filename = filename .. "/"
-		end
-
-		table.insert(files, {
-			css_cls  = stats.mode:gsub("%s", "-");
-			href     = http_util.encodeURI(path .. filename);
-			filename = filename;
-			size     = stats.size;
-			size_h   = human(stats.size);
-			time     = os.date("!%Y-%m-%d %X", stats.modification)
-		})
-		::continue::
-	end
-
-	pages'index.ltpl'(model, function(s) assert(stream:write_chunk(s)); end)
-	stream:write_chunk('\n', true)
-end
-
-function handlers.file (server, stream, context)
-	local real_path = context.real_path
-	local headers, method = context.headers, context.method
-
-	local fd, err, errno = io.open(real_path, "rb")
-	local code
-	if not fd then
-		if errno == ce.ENOENT then
-			code = "404"
-		elseif errno == ce.EACCES then
-			code = "403"
-		else
-			code = "503"
-		end
-		headers:upsert(":status", code)
-		headers:append("content-type", "text/html?charset=utf8")
-		assert(stream:write_headers(headers, method == "HEAD"))
-		if method == "HEAD" then return end
-		
-		pages'error.ltpl'({ path=context.path, code=code }, function(e) stream:write_chunk(e) end)
-		stream:write_chunk('\n', true)
-		return
-	end
-	
-	headers:upsert(":status", "200")
-	local mime_type = mime_mapping(context.real_path)
-	log("Got a file: " .. mime_type)
-	headers:append("content-type", mime_type)
-	assert(stream:write_headers(headers, method == "HEAD"))
-	if req_method ~= "HEAD" then
-		assert(stream:write_body_from_file(fd))
-	end
-end
-
-function handlers.__default__(server, stream, context)
-	local headers = context.headers
-	headers:upsert(":status", "404")
-	assert(stream:write_headers(headers, false))
-	pages'error.ltpl'({ path=context.path, code="404" }, function(e) stream:write_chunk(e) end)
-	stream:write_chunk('\n', true)
-end
--- empty string Alias to handler '__deafult__'
-handlers[''] = '__deafult__'
+local handlers = require'handlers' {
+	path='handlers/';
+	no_cache=true;
+	handler_env=setmetatable({ pages=pages }, { __index=_ENV })
+};
 
 --
 -- Controller
@@ -170,24 +89,17 @@ local function reply(myserver, stream) -- luacheck: ignore 212
 		path=path; real_path=real_path;
 	}
 	local file_type = lfs.attributes(real_path, "mode")
-	local handler = search_jump_table(handlers, file_type or '', 3)
-	if handler then 
-		handler(myserver, stream, context)
-		return
-	end
-
-	log("Attempted to access unsupported type: ", file_type)
-	res_headers:upsert(":status", "403")
-	assert(stream:write_headers(res_headers, true))
-	
+	local success, error = pcall(function()
+		return handlers:dispatch(file_type, myserver, stream, context)
+	end)
+	if success then return; end
+	log('Request process failed: %s', error)
 end
 
 local function onerror(myserver, context, op, err, errno)
 	local msg = op .. " on " .. tostring(context) .. " failed"
-	if err then
-		msg = msg .. ": " .. tostring(err)
-	end
-	assert(io.stderr:write(msg, "\n"))
+	if err then msg = msg .. ": " .. tostring(err); end
+	log(msg)
 end
 
 --
@@ -205,21 +117,32 @@ local myserver = assert(http_server.listen {
 	cq = cq;
 })
 
--- Manually call :listen() so that we are bound before calling :localname()
-assert(myserver:listen())
-do
+do -- Manually call :listen() so that we are bound before calling :localname()
+	assert(myserver:listen())
 	local bound_port = select(3, myserver:localname())
 	log("Now listening on port %d", bound_port)
 end
 
+local CacheObjectProviders = { 
+	{ 'pages',    function() return pages.cache;    end };
+	{ 'handlers', function() return handlers.cache; end };
+}
 cq:wrap(function()
 	log("Cache evict job started.")
-	::begin_loop::
-	
-	cqueues.sleep(1)
-	local cache_evict_count = pages:evict_cache()
-	if cache_evict_count > 0 then log("%d page cache evicted.", cache_evict_count); end
 
+	::begin_loop::
+	cqueues.sleep(1)
+	local gc = false
+	for _, pv in ipairs(CacheObjectProviders) do
+		local name, provider = table.unpack(pv)
+		local c = provider()
+		if not c then goto continue; end
+		local cache_evict_count = c:evict_cache()
+		if cache_evict_count <= 0 then goto continue; end
+		log("%d %s cache evicted.", cache_evict_count, name);
+		gc = true
+		::continue::
+	end
 	goto begin_loop
 end)
 
