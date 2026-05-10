@@ -1,5 +1,6 @@
-<? local page_title, title, description = '', '', ''; ?>
 <? 
+local page_title, title, description = '', '', '';
+
 local function notfound() 
     title = 'Not found';
     page_title = "Not found: " .. path;
