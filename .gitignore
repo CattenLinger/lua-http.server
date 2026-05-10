@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Lua
+*.luac
+luac.out
+
+# Dependencies
+node_modules/
+*.gem
+*.rbc
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
