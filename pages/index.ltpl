@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Index of %s</title>
+	<title>Index of <% path %></title>
 	<style>
 		a { float: left; }
 		a::before { width: 1em; float: left; content: "\0000a0"; padding: 0 3pt 0 0; }
