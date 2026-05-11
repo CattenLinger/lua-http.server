@@ -23,10 +23,12 @@ local mime_mapping = {
     
 }
 
+local unpack = table.unpack
+
 return function(filename)
-    if not filename then return mime_mapping[''][1]; end
+    if not filename then return unpack(mime_mapping['']); end
 
     local ext = filename:match('%.[^%.]*$') or ''
     local type_info = search_jump_table(mime_mapping, ext:lower(), 10) or mime_mapping['']
-    return type_info[1]
+    return unpack(type_info)
 end

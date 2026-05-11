@@ -110,34 +110,6 @@ local new_headers = require "http.headers".new
 local dir = CONFIG.root_path
 local default_server = string.format("%s/%s", http_version.name, http_version.version)
 
-local context_proto = (function()
-    local datas = {}
-    local getters = {
-        ['headers'] = function(self, key)
-            local server = self.server
-            local headers = new_headers()
-            headers:append(":status", nil)
-            headers:append("server", default_server)
-            headers:append("date", http_util.imf_date())
-            return headers
-        end
-    }
-
-    return {
-        __index = function(self, key)
-            local v = rawget(self, key)
-            if v then return v; end
-            v = datas[key]
-            if v then return v; end
-            local g = getters[key]
-            if not g then return nil; end
-            v = g(self, key)
-            datas[key] = v
-            return v
-        end;
-    }
-end)
-
 local function reply(myserver, stream) -- luacheck: ignore 212
 
 	-- Read in headers
@@ -148,13 +120,11 @@ local function reply(myserver, stream) -- luacheck: ignore 212
 	log_request(req_headers, stream)
 
 	-- Build response headers
-	local res_headers = new_headers()
-	res_headers:append(":status", nil)
-	res_headers:append("server", default_server)
-	res_headers:append("date", http_util.imf_date())
-
 	if req_method ~= "GET" and req_method ~= "HEAD" then
-		res_headers:upsert(":status", "405")
+        local res_headers = new_headers()
+        res_headers:append(":status", "405")
+        res_headers:append("server", default_server)
+        res_headers:append("date", http_util.imf_date())
 		assert(stream:write_headers(res_headers, true))
 		return
 	end
@@ -166,7 +136,7 @@ local function reply(myserver, stream) -- luacheck: ignore 212
 
 	local context = { 
 		headers=req_headers; method=req_method;
-		path=path; real_path=real_path;
+		path=path;           real_path=real_path;
 	}
 	local file_type = lfs.attributes(real_path, "mode")
 	local success, error = pcall(function()

@@ -7,11 +7,11 @@ return function (server, stream, context)
 
 	-- directory listing
 	path = path:gsub("/+$", "") .. "/"
-	headers:upsert(":status", "200")
-	headers:append("content-type", "text/html; charset=utf-8")
-	assert(stream:write_headers(headers, method == "HEAD"))
-	
-	if req_method == 'HEAD' then return; end
+    local res_headers = new_response_headers("200")
+	res_headers:append("content-type", "text/html; charset=utf-8")
+
+	assert(stream:write_headers(res_headers, method == "HEAD"))
+	if method == 'HEAD' then return; end
 
 	local files = {}
 	local model = { path=path, files=files }
