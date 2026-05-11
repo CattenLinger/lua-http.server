@@ -132,7 +132,7 @@ local function reply(myserver, stream) -- luacheck: ignore 212
 	local path = req_headers:get(":path")
 	local uri_t = assert(uri_reference:match(path), "invalid path")
 	path = http_util.resolve_relative_path("/", uri_t.path)
-	local real_path = dir .. path
+	local real_path = dir .. http_util.decodeURIComponent(path)
 
 	local context = { 
 		headers=req_headers; method=req_method;

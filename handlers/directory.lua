@@ -14,7 +14,7 @@ return function (server, stream, context)
 	if method == 'HEAD' then return; end
 
 	local files = {}
-	local model = { path=path, files=files }
+	local model = { path=http_util.decodeURIComponent(path), files=files }
 	
 	-- lfs doesn't provide a way to get an errno for attempting to open a directory
 	-- See https://github.com/keplerproject/luafilesystem/issues/87
