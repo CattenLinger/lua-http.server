@@ -20,7 +20,8 @@ local mime_mapping = {
 
     ['.css'] = {'text/css?charset=utf8'};
     ['.js'] = {'text/javascript?charset=utf8'};
-    
+    ['.json'] = {'application/json?charset=utf8'};
+    ['.xml'] = {'application/xml?chatset=utf8'};
 }
 
 local unpack = table.unpack
