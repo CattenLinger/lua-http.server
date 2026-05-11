@@ -5,10 +5,10 @@
 do
     local home = os.getenv("LUA_HTTP_SERVER_HOME")
     if not home or home == '' then 
-        io.stderr:write('LUA_HTTP_SERVER_HOME missing.', '\n')
-        os.exit(1)
+        io.stderr:write('LUA_HTTP_SERVER_HOME missing.', '\n');
+        os.exit(1);
     end
-    package.path = package.path .. (';%s/lib/?.lua;%s/lib/?/init.lua;'):format(home, home)
+    package.path = ('%s;%s/lib/?.lua;%s/lib/?/init.lua'):format(package.path, home, home)
 end
 
 local log = require"utils".simple_log()
@@ -52,7 +52,7 @@ do
     function _G.RegisterCacheCleaner(tb)
         local name, getter = table.unpack(tb)
         local c = getter()
-        if not Cache.is(c) then error("Cache "..name.." is not a cache instance."); end
+        if not Cache.is(c) then error("Cache '"..name.."' is not a cache instance."); end
         table.insert(CacheObjectProviders, { name, getter });
     end
 
@@ -97,9 +97,9 @@ local handlers = require'handlers' {
 	no_cache    = CONFIG.no_handler_cache;
 	skip_config = CONFIG.no_handler_config;
 
-	handler_env = setmetatable({ 
+	handler_env = { 
 		CONFIG = CONFIG; -- App Configuration
-	}, { __index=_ENV })
+	}
 };
 RegisterCacheCleaner { 'handlers', function() return handlers.cache; end };
 
@@ -109,6 +109,35 @@ RegisterCacheCleaner { 'handlers', function() return handlers.cache; end };
 local new_headers = require "http.headers".new
 local dir = CONFIG.root_path
 local default_server = string.format("%s/%s", http_version.name, http_version.version)
+
+local context_proto = (function()
+    local datas = {}
+    local getters = {
+        ['headers'] = function(self, key)
+            local server = self.server
+            local headers = new_headers()
+            headers:append(":status", nil)
+            headers:append("server", default_server)
+            headers:append("date", http_util.imf_date())
+            return headers
+        end
+    }
+
+    return {
+        __index = function(self, key)
+            local v = rawget(self, key)
+            if v then return v; end
+            v = datas[key]
+            if v then return v; end
+            local g = getters[key]
+            if not g then return nil; end
+            v = g(self, key)
+            datas[key] = v
+            return v
+        end;
+    }
+end)
+
 local function reply(myserver, stream) -- luacheck: ignore 212
 
 	-- Read in headers

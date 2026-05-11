@@ -9,5 +9,5 @@ LUA HTTP SERVER
 
 运行：
 ```
-lua htttp-serve.lua
+./bin/http-server
 ```

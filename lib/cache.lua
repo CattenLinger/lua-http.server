@@ -3,7 +3,7 @@ local clock = require'utils'.clock
 --[[
     Cache pool object
 ]]--
-local Cache = { __cls__ = 'cache_pool'; cache_ttl = 1; cache_rebuild_interval = 60; }
+local Cache = { cache_ttl = 1; cache_rebuild_interval = 60; }
 
 --[[
     Members
@@ -69,8 +69,15 @@ end
 --[[
     Static Methods
 ]]--
+local __mt__ = { 
+    __class = '::cache_pool';
+    __index = Cache;
+    __call = function(self, ...) return self:get(...); end;
+}
+
 function Cache.is(self)
-    return self.__cls__ == Cache.__cls__
+    if type(self) ~= 'table' then return false; end
+    return ((getmetatable(self) or {}).__class == __mt__.__class)
 end
 
 function Cache.new(options)
@@ -78,10 +85,7 @@ function Cache.new(options)
     data.elements = {};
     data.birth = clock();
 
-    return setmetatable(data, { 
-        __index = Cache;
-        __call = function(self, ...) return self:get(...); end;
-    })
+    return setmetatable(data, __mt__)
 end
 
 return Cache;

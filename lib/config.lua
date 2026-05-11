@@ -85,9 +85,10 @@ local DefaultConfig = {
 }
 local CfgProto = {}
 do
-    function CfgProto.resolve(path)
-    
+    function CfgProto.resolve(self, path)
+        return self.binary_home..'/'..path
     end
+    setmetatable(DefaultConfig, { __index=CfgProto })
 end
 
 local arg_meta = {
