@@ -12,7 +12,6 @@ do
 end
 
 local log = require"utils".simple_log()
-log('Lua Path: %s', package.path)
 
 local CONFIG = require'config'(arg)
 

@@ -9,5 +9,11 @@ LUA HTTP SERVER
 
 运行：
 ```
-./bin/http-server
+./bin/http-server [options]
+
+./bin/http-server --help
 ```
+
+主要增加的功能为：
+- 通过模板引擎渲染目录而不是直接字符串拼接
+- 动态的处理器和页面加载，能直接修改然后查看效果

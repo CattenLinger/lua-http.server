@@ -74,6 +74,40 @@ local function arg_process(arg_list, cfg, spec_tbl)
 	return remains, escaped
 end
 
+local function print_help(config, spec_meta)
+	io.stderr:write('Usage: http-server [options]\n')
+
+    local function nspace(n)
+        local str = ''
+        for i=1, n do str = str .. ' '; end
+        return str
+    end
+
+	local function print_tbl(tbl)
+		local cnt = 0
+        local maxlength = 0
+        local strbuff = {}
+		for k, v in pairs(tbl) do
+			if type(v) == 'string' then goto continue; end
+			cnt = cnt + 1
+			local desc = v.desc or 'No description'
+            local klen = #k
+            if klen > maxlength then maxlength = klen; end
+            table.insert(strbuff, { klen, k, desc })
+			::continue::
+		end
+        for _, i in ipairs(strbuff) do
+            local klen, k, desc = table.unpack(i)
+            io.stdout:write(string.format("\t%s%s\t%s\n", k, nspace(maxlength - klen), desc))
+        end
+		return cnt
+	end
+
+	local spec_tbl = table.unpack(spec_meta)
+	io.stdout:write('Options:\n')
+	print_tbl(spec_tbl)
+end
+
 local DefaultConfig = {
     binary_home = os.getenv('LUA_HTTP_SERVER_HOME');
 
@@ -93,19 +127,17 @@ end
 
 local arg_meta = {
     {
-        ['--host'] = {
-            desc = 'Address to listen to';
-            size = { 1 }, set_prop = { 'host' }
+        ['--host'] = { 
+            desc = '-h, Address to listen to';
+            size = { 1 }, set_prop = { 'host' };
         };
-
         ['--port'] = {
-            desc = 'Port to listen to';
-            size = { 1, 1 }, set_prop = { 'port' }
+            desc = '-p, Port to listen to';
+            size = { 1, 1 }, set_prop = { 'port' };
         };
-
         ['--root'] = {
-            desc = 'Web root';
-            size = { 1 }, set_prop = { 'root_path' }
+            desc = '-d, Web root';
+            size = { 1 }, set_prop = { 'root_path' };
         };
 
         ['-d'] = '--root';
@@ -113,39 +145,41 @@ local arg_meta = {
         ['-h'] = '--host';
 
         ['--handler-path'] = {
-            desc = 'handler folder path';
-            size = { 1, 1 }, set_prop = { 'handler_dir' }
+            desc = '-dH, Handler folder path';
+            size = { 1, 1 }, set_prop = { 'handler_dir' };
         };
         ['-dH'] = '--handler-path';
 
         ['--no-page-cache'] = {
-            desc = 'Disable page caching';
+            desc = '-nCP, Disable page caching';
             size = { 0 }, set_prop = { 'no_page_cache', true }
         };
-        
         ['--no-handler-cache'] = {
-            desc = 'Disable handler caching';
-            size = { 0 }, set_prop = { 'no_handler_cache', true }
+            desc = '-nCH, Disable handler caching';
+            size = { 0 }, set_prop = { 'no_handler_cache', true };
         };
-
         ['--no-handler-config'] = {
-            desc = 'Disable handler config';
-            size = { 0 }, set_prop = { 'no_handler_config', true }
+            desc = '-nPH, Disable handler config';
+            size = { 0 }, set_prop = { 'no_handler_config', true };
         };
-        
 
         ['-nCP'] = '--no-page-cache';
         ['-nCH'] = '--no-handler-cache';
         ['-nPH'] = '--no-handler-config';
 
         ['--debug'] = {
-            desc = 'Enable all debug features';
-            size = { 0 }, set_prop = { 'debug', true }
+            desc = '-d, Enable all debug features';
+            size = { 0 }, set_prop = { 'debug', true };
         };
-        ['-d'] = '--debug'
+        ['-d'] = '--debug';
+
+        ['--help'] = {
+            desc = 'Show help and exit';
+            size = { 0 }, set_prop = { 'help', true };
+        };
     };
     function (config)
-
+        
     end;
 }
 
@@ -155,6 +189,8 @@ return function(args)
     local arg_list = arg_parse(args)
     local remain, escaped = arg_process(arg_list, cfg, arg_spec)
     post_process(cfg)
+    if cfg.help then print_help(cfg, arg_meta); os.exit(0); end
+
     cfg._args = { table.unpack(args); remain=remain; escaped=escaped; }
     return cfg
 end
