@@ -1,6 +1,9 @@
 local search_jump_table = require'utils'.search_jump_table
 local log = require'utils'.simple_log()
 
+local unpack = table.unpack
+local pack = table.pack
+
 local M = { path="handlers/", mapping = {} }
 
 local function new_env(init_content)
@@ -16,24 +19,58 @@ local function M_load_handler(self, name, ...)
     return fn(...), e
 end
 
-local pack = table.pack
-local unpack = table.unpack
+local InternalDefaultNotFoundHandler = { 
+    function (server, stream)
+        local res_headers = new_headers()
+        res_headers:append(":status", "404")
+        res_headers:append("server" , default_server)
+        res_headers:append("date"   , http_util.imf_date())
+        assert(stream:write_headers(res_headers, true))
+    end;
+    setmetatable({}, { __index = _ENV });
+}
 
-function M.dispatch(self, name, ...)
+function M.dispatch(self, name, server, stream, ...)
     local name = name or ''
     if name == '' then name = 'default'; end
-    local value do 
+
+    local value do
         local cache = self.cache
         if cache then value = cache(name); end
         if value then goto end_load; end
 
-        local fn, env = M_load_handler(self, name)
-        value = { fn, env }
-        if cache then cache:put(name, cached) end
+        local success, fn, env = pcall(function() return M_load_handler(self, name); end)
+        if not success then
+            log("Could not load template '%s': %s", name, fn)
+            value = InternalDefaultNotFoundHandler
+        else
+            value = { fn, env }
+            if cache then cache:put(name, cached) end
+        end
         ::end_load::
     end
 
-    return value[1](...)
+    local pipeline, env = unpack(value)
+    return pipeline(server, stream, ...)
+end
+
+function M.ingress(self, myserver, stream, context)
+    local ingress = self.pipeline.ingress
+    if ingress then return ingress(myserver, stream, context); end
+    
+    -- Default ingress
+    local req_method = context.method
+    if req_method ~= "GET" and req_method ~= "HEAD" then
+        local res_headers = new_headers()
+        res_headers:append(":status", "405")
+        res_headers:append("server" , default_server)
+        res_headers:append("date"   , http_util.imf_date())
+		assert(stream:write_headers(res_headers, true))
+		return
+	end
+    local file_type = lfs.attributes(context.real_path, "mode")
+    context.file_type = file_type
+    return file_type
 end
 
 local function M_init(self)
@@ -41,8 +78,11 @@ local function M_init(self)
 
     self.handler_env = new_env(self.handler_env or {})
     local f_conf, err = loadfile(self.path..'.config.lua', 't', self.handler_env)
-    if f_conf then f_conf(); else
-        log('Ignore .config.lua file loading: %s', err); 
+    
+    if f_conf then 
+        self.pipeline = f_conf() or {}
+    else
+        log('Ignore .config.lua file loading: %s', err)
     end
 
     return self

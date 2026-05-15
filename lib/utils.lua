@@ -4,7 +4,9 @@ local utils = {}
 utils.simple_log = function(target)
 	local stream = target or io.stderr
 	if not stream.write then error("log constructor target must be a stream") end
-	function write(...) stream:write('[', os.date("%d/%b/%Y:%H:%M:%S %z") ,'] ' ,...); end
+	local function write(...) 
+		stream:write('[', os.date("%d/%b/%Y:%H:%M:%S %z") ,'] ' ,...)
+	end
 
 	return function(leading, ...)
 		if not leading then return write('\n') end
@@ -12,6 +14,21 @@ utils.simple_log = function(target)
 		if arg == nil then return write(leading, '\n') end
 		write(string.format(leading, ...), '\n')
 	end
+end
+
+utils.overlay_tables_for = function(target, backups)
+	local function search(self, key)
+		local v = rawget(self, key)
+		
+		if v ~= nil then return v; end
+		for k, tb in ipairs(backups) do
+			v = tb[key]
+			if v ~= nil then return v; end
+		end
+		return nil
+	end
+
+	return setmetatable(target, { __index = search }), backups
 end
 
 -- Convert byte to human friendly format

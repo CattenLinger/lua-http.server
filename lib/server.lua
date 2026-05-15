@@ -102,9 +102,11 @@ local handlers = require'handlers' {
 };
 RegisterCacheCleaner { 'handlers', function() return handlers.cache; end };
 
---
--- Controller
---
+
+--[[
+    Controller
+]]--
+
 local new_headers = require "http.headers".new
 local dir = CONFIG.root_path
 local default_server = string.format("%s/%s", http_version.name, http_version.version)
@@ -118,31 +120,30 @@ local function reply(myserver, stream) -- luacheck: ignore 212
 	-- Log request to stderr
 	log_request(req_headers, stream)
 
-	-- Build response headers
-	if req_method ~= "GET" and req_method ~= "HEAD" then
-        local res_headers = new_headers()
-        res_headers:append(":status", "405")
-        res_headers:append("server", default_server)
-        res_headers:append("date", http_util.imf_date())
-		assert(stream:write_headers(res_headers, true))
-		return
-	end
-
 	local path = req_headers:get(":path")
 	local uri_t = assert(uri_reference:match(path), "invalid path")
 	path = http_util.resolve_relative_path("/", uri_t.path)
 	local real_path = dir .. http_util.decodeURIComponent(path)
 
-	local context = { 
-		headers=req_headers; method=req_method;
-		path=path;           real_path=real_path;
-	}
-	local file_type = lfs.attributes(real_path, "mode")
+	local context = {
+        headers=req_headers; method=req_method;
+        path=path;           real_path=real_path;
+    }
 	local success, error = pcall(function()
-		return handlers:dispatch(file_type, myserver, stream, context)
+        local handler_name = handlers:ingress(myserver, stream, context)
+
+        -- Handlers use an overlay context
+        context = setmetatable({}, { __index = context })
+		return handlers:dispatch(handler_name or 'default', myserver, stream, context)
 	end)
 	if success then return; end
-	log('Request process failed: %s', error)
+
+	log('Request process failed: %s', error.message or tostring(error))
+    if type(error) == 'table' then
+        error(error)
+    else 
+        error(setmetatable({ message = tostring(error) }, { __index=context })) 
+    end
 end
 
 local function onerror(myserver, context, op, err, errno)
