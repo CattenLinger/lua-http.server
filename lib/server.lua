@@ -1,182 +1,280 @@
-
---[[
-    Entry of the http server
-]]--
+--[[ Entry of the http server ]]--
 do
     local home = os.getenv("LUA_HTTP_SERVER_HOME")
     if not home or home == '' then 
         io.stderr:write('LUA_HTTP_SERVER_HOME missing.', '\n');
         os.exit(1);
     end
-    package.path = ('%s;%s/lib/?.lua;%s/lib/?/init.lua'):format(package.path, home, home)
+    package.path = table.concat {
+        home..'/lib/?.lua;'; home..'/lib/?/init.lua;';
+        package.path;
+    }
 end
 
-local log = require"utils".simple_log()
+--[[ Init essentials ]]--
 
-local CONFIG = require'config'(arg)
+CONFIG = require'config'(arg)
+local log = (require'log':set_defaults {
+    use_color=CONFIG.log_color;
+    level = CONFIG.log_level or 'INFO'
+})()
+log:debug("Registered Gloabl ENV: CONFIG")
+-- install a critical() to improve the behavior of error()
+require'utils'.install_critical {
+    debug=CONFIG.debug or false;
+    printer=function(t, ...) log:error('!! FATAL !! '..t, ...) end
+}
 
-local http_server = require "http.server"
-local http_util = require "http.util"
-local http_version = require "http.version"
+--[[ Coroutine ]]
+EventQueue = require'cqueues'.new()
+log:debug("Registered Gloabl ENV: EventQueue")
 
-local lfs = require "lfs"
-
-local lpeg = require "lpeg"
-local uri_patts = require "lpeg_patterns.uri"
-local uri_reference = uri_patts.uri_reference * lpeg.P(-1)
-
-local function log_request(req_headers, stream)
-	return log(
-		'"%s %s HTTP/%g"  "%s" "%s"',
-		req_headers:get":method" or "",
-		req_headers:get":path" or "",
-		stream.connection.version,
-		req_headers:get"referer" or "-",
-		req_headers:get"user-agent" or "-"
-	)
-end
-
---[[
-    Corotuine
-]]--
-local cqueues = require'cqueues'
-local cq = cqueues.new()
-
---[[
-	Cache cleaner
-]]--
-do
-	local CacheObjectProviders = {}
-    local Cache = require'cache'
-    function _G.RegisterCacheCleaner(tb)
-        local name, getter = table.unpack(tb)
-        local c = getter()
-        if not Cache.is(c) then error("Cache '"..name.."' is not a cache instance."); end
-        table.insert(CacheObjectProviders, { name, getter });
-    end
-
+--[[ Cache cleaner ]] do
+    local cqueues = require'cqueues'
     local gc = false
+    function _G.NotifyNextGC() gc = true end
+    log:debug("Registered Gloabl ENV: NotifyNextGC")
 
-	cq:wrap(function()
-		log("Cache evict job started.")
-		::begin_loop::
-		cqueues.sleep(1)
-
-		for _, pv in ipairs(CacheObjectProviders) do
-			local name, provider = table.unpack(pv)
-			local c = provider()
-			if not c then goto continue; end
-			local cache_evict_count = c:evict_cache()
-			if cache_evict_count <= 0 then goto continue; end
-			log("%d %s cache evicted.", cache_evict_count, name);
-			gc = true
-			::continue::
-		end
-		goto begin_loop
-	end)
-
-    cq:wrap(function()
-        log("GC trigger job stared.")
+    EventQueue:wrap(function()
+        log:info("GC trigger job stared, interval: 10s.")
         ::begin_loop::
         cqueues.sleep(10)
         if not gc then goto begin_loop; end
 
-        gc = false; 
-        collectgarbage(); 
-        log("GC triggered."); 
+        gc = false;
+        local r = collectgarbage();
+        log:trace("GC triggered. (%d)", r);
         goto begin_loop
     end)
 end
 
---[[
-	HTTP Handlers
-]]--
-local handlers = require'handlers' {
-	path        = CONFIG.handler_dir;
-	no_cache    = CONFIG.no_handler_cache;
-	skip_config = CONFIG.no_handler_config;
 
-	handler_env = { 
-		CONFIG = CONFIG; -- App Configuration
-	}
-};
-RegisterCacheCleaner { 'handlers', function() return handlers.cache; end };
+--[[ Controller ]]
+local extable = require'utils'.table
 
+--[[ Server request wrapper ]]
+local Request do
+    local http_util = require "http.util"
+    local lpeg      = require "lpeg"
+    local uri_patts = require "lpeg_patterns.uri"
+    local uri_ref   = uri_patts.uri_reference * lpeg.P(-1)
 
---[[
-    Controller
-]]--
+    local dir = CONFIG.root_path
 
-local new_headers = require "http.headers".new
-local dir = CONFIG.root_path
-local default_server = string.format("%s/%s", http_version.name, http_version.version)
+    local function get_headers(self)
+        return assert(self.stream:get_headers())
+    end
+    
+    local function get_method(self)
+        return assert(self.headers:get':method')
+    end
 
-local function reply(myserver, stream) -- luacheck: ignore 212
+    local function get_path(self)
+        path = assert(self.headers:get':path')
+        local uri_t = assert(uri_ref:match(path), "invalid path")
+        return http_util.resolve_relative_path("/", uri_t.path)
+    end
 
-	-- Read in headers
-	local req_headers = assert(stream:get_headers())
-	local req_method  = req_headers:get":method"
+    local function get_real_path(self)
+        return dir .. http_util.decodeURIComponent(self.path)
+    end
 
-	-- Log request to stderr
-	log_request(req_headers, stream)
-
-	local path = req_headers:get(":path")
-	local uri_t = assert(uri_reference:match(path), "invalid path")
-	path = http_util.resolve_relative_path("/", uri_t.path)
-	local real_path = dir .. http_util.decodeURIComponent(path)
-
-	local context = {
-        headers=req_headers; method=req_method;
-        path=path;           real_path=real_path;
-    }
-	local success, error = pcall(function()
-        local handler_name = handlers:ingress(myserver, stream, context)
-
-        -- Handlers use an overlay context
-        context = setmetatable({}, { __index = context })
-		return handlers:dispatch(handler_name or 'default', myserver, stream, context)
-	end)
-	if success then return; end
-
-	log('Request process failed: %s', error.message or tostring(error))
-    if type(error) == 'table' then
-        error(error)
-    else 
-        error(setmetatable({ message = tostring(error) }, { __index=context })) 
+    function Request(server, stream)
+        return extable.lazy {
+            stream    = stream;
+            headers   = get_headers;
+            method    = get_method;
+            path      = get_path;
+            real_path = get_real_path;
+        };
     end
 end
 
-local function onerror(myserver, context, op, err, errno)
-	local msg = op .. " on " .. tostring(context) .. " failed"
-	if err then msg = msg .. ": " .. tostring(err); end
-	log(msg)
+--[[ Server response wrapper ]]
+local Response do
+    local http_util      = require "http.util"
+    local new_headers    = require "http.headers".new
+    local http_version   = require "http.version"
+    local default_server = string.format("%s/%s", http_version.name, http_version.version)
+
+    local function assert_context_not_finished(self)
+        if (self['.finish'] or {})[1] 
+        then error('try to act on a finished context') 
+        end
+    end
+    
+    local function create_new_header(self)
+        assert_context_not_finished(self)
+
+        local headers = new_headers()
+        headers:append("server", default_server)
+        headers:append("date", http_util.imf_date())
+        return headers
+    end
+
+    local function set_content_type(self, ct)
+        assert_context_not_finished(self)
+        self.headers:append('content-type', ct)
+        return self
+    end
+
+    local function set_status(self, st)
+        assert_context_not_finished(self)
+        if type(st) ~= 'string' then st = tostring(st) end
+        self.headers:append(":status", st)
+        return self
+    end
+
+    local function finish(self, value, ...)
+        assert_context_not_finished(self)
+
+        local stream = self.stream
+        local args = table.pack(...)
+
+        -- If has no value
+        if value == nil and #args <= 0 then
+            self['.finish'] = { true; function()
+                stream:write_chunk('', true)
+            end }
+        end
+
+        local value_t = type(value)
+        if value_t == 'userdata' then
+            self['.finish'] = { true; function()
+                stream:write_body_from_file(value)
+            end }
+            return
+        end
+
+        -- If it's a value
+        if value_t ~= 'function' then
+            self['.finish'] = { true; function()
+                stream:write_chunk(tostring(value), false)
+                for i, k in ipairs(args) do
+                    stream:write_chunk(tostring(k), false)
+                end
+                stream:write_chunk('', true)
+            end }
+            return
+        end
+
+        local writer = function(chunk)
+            return stream:write_chunk(chunk, false)
+        end
+        self['.finish'] = { true; function()
+            value(writer, table.unpack(args))
+            stream:write_chunk('', true)
+        end }
+    end
+
+    function Response(server, stream)
+        return extable.lazy {
+            -- Properties
+            stream       = stream;
+            headers      = create_new_header;
+            -- Methods
+            content_type = function() return set_content_type end;
+            status       = function() return set_status end;
+            finish       = function() return finish end;
+        }
+    end
 end
 
---
--- Server
---
+--[[ Server reply method ]]
+local server_onstream, server_onerror do
+    local unpack = table.unpack
 
+    local log_request = (function()
+        -- Use null printer if is not using debug mode
+        if not CONFIG.debug then return (function() end) end
 
-local myserver = assert(http_server.listen {
-	host = CONFIG.host[1];
-	port = CONFIG.port;
-	max_concurrent = 100;
-	onstream = reply;
-	onerror = onerror;
-	cq = cq;
+        return function (req_headers, stream)
+            return log:info(
+                '"%s %s HTTP/%g"  "%s" "%s"',
+                req_headers:get":method" or "",
+                req_headers:get":path" or "",
+                stream.connection.version,
+                req_headers:get"referer" or "-",
+                req_headers:get"user-agent" or "-"
+            )
+        end
+    end)()
+    
+    local dispatcher = require'dispatcher' {
+        path = CONFIG.handler_dir;
+        no_cache = CONFIG.no_handler_cache;
+        -- cache_options = CONFIG.handler_cache_options;
+    }
+
+    local mt_error = { __tostring = function(self) return self[1] or 'nil'; end }
+
+    --[[
+        The entry point of the server.
+        It's called when a new stream is accepted.
+
+        Error handling is not needed because non business logic errors will
+        cause the stream to be closed, they are not recoverable.
+    ]]--
+    function server_onstream(server, stream) -- luacheck: ignore 212
+        --[[ 
+            Wrap request and response.
+            It's a lazy table, so the properties will be computed
+            when they are accessed.
+
+            Also it acts as a request parsing step to validate the request.
+        ]]--
+        local request  = Request(server, stream);
+        local response = Response(server, stream);
+
+        -- Log the request basic info to stderr for debugging
+        log_request(request.headers, stream)
+
+        --[[ Select the appropriate handler and execute it ]]--
+        dispatcher(server, stream, request, response)
+
+        --[[
+            Write contents to the stream.
+        ]]--
+        local finished, body_provider = unpack(response['.finish'] or {})
+        if not finished then error('request end without finish') end
+
+        local is_head_req = request.method == 'HEAD'
+        stream:write_headers(response.headers, is_head_req)
+
+        -- If it's a HEAD request, return immediately
+        if is_head_req then return end
+
+        --[[ Call the body generator ]]--
+        body_provider()
+    end
+
+    function server_onerror(myserver, context, op, err, errno)
+        local msg = string.format("%s on %s failed", op, tostring(context))
+        if err then msg = string.format("%s: %s", msg, err); end
+        log:error(msg)
+    end
+end
+
+Server = assert(require'http.server'.listen {
+    host = CONFIG.host[1];
+    port = CONFIG.port;
+    max_concurrent = 100;
+    onstream = server_onstream;
+    onerror = server_onerror;
+    cq = EventQueue;
 })
+log:debug("Registered Gloabl ENV: Server")
 
-do -- Manually call :listen() so that we are bound before calling :localname()
-	assert(myserver:listen())
-	local bound_port = select(3, myserver:localname())
-	log("Now listening on port %d", bound_port)
-end
+-- Manually call :listen() so that we are bound before calling :localname()
+assert(Server:listen())
+local bound_port = select(3, Server:localname())
+log:info("Now listening on port %d", bound_port)
 
 -- Start the main server loop
 if not CONFIG.debug then
-    local rs, e = pcall(function() return myserver:loop(); end)
-    if e then log("Server exited: %s", e); end
+    local rs, e = pcall(function() return Server:loop(); end)
+    if not rs then log:info("Server exited: %s", e); end
 else
-    log("Debug mode is enabled.")
-    assert(myserver:loop())
+    log:info("Debug mode is enabled.")
+    assert(Server:loop())
 end

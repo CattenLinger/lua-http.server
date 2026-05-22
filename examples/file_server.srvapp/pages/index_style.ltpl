@@ -1,0 +1,2 @@
+<%=include'includes/global_style.ltpl'%>
+<%=include'includes/file_style.ltpl'%>

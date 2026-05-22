@@ -10,18 +10,18 @@ local mime_mapping = {
     ['.svg'] = {'image/svg'};
 
     -- text
-    ['.txt'] = {'text/plain?charset=utf8'};
+    ['.txt'] = {'text/plain; charset=utf8'};
     ['.lua'] = '.txt';
     ['.md'] = '.txt';
 
     -- web
-    ['.html'] = {'text/html?charset=utf8'};
+    ['.html'] = {'text/html; charset=utf8'};
     ['.htm'] = '.html';
 
-    ['.css'] = {'text/css?charset=utf8'};
-    ['.js'] = {'text/javascript?charset=utf8'};
-    ['.json'] = {'application/json?charset=utf8'};
-    ['.xml'] = {'application/xml?chatset=utf8'};
+    ['.css'] = {'text/css; charset=utf8'};
+    ['.js'] = {'text/javascript; charset=utf8'};
+    ['.json'] = {'application/json; charset=utf8'};
+    ['.xml'] = {'application/xml; chatset=utf8'};
 }
 
 local unpack = table.unpack
