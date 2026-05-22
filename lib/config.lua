@@ -1,17 +1,40 @@
 local arg_parse = require'utils'.arg_parse
 local search_jump_table = require'utils'.search_jump_table
+local extext = require'utils'.text
+local unpack = table.unpack
+local write  = function(...) io.stdout:write(...) end
 
+--[[
+    Process arg list accoring to the spec table
+    A spect table is a table that storing meta info
+    aboutn options, in format:
+    
+    {
+        -- Definition
+        ['--option'] = {
+            desc='description';
+            size={ min_value_count, max_value_count }; 
+            set_prop={ 'prop_name', default_value };
+        };
+        -- Shortcut/Redirect
+        ['-o'] = '--options';
+    }
+    
+    size & set_prop is optional. size is for validating
+    value count for an option. set prop will set the value to 
+    the given table
+]]--
 local function arg_process(arg_list, cfg, spec_tbl)
     local escaped, remains = {}, {}
 
+    --[[
+    If values list length is less than arg_min, it will exit with error.
+    If arg_max is nil, it means there is no upper limit for the number of argument values,
+    and use value list's length as arg_max.
+    
+    It will return the arg_min and arg_max for later use.
+    ]]--
 	local function check_arg_size(key, values, arg_size)
-		-- If values list length is less than arg_min, it will exit with error.
-		--
-		-- If arg_max is nil, it means there is no upper limit for the number of argument values,
-		-- and use value list's length as arg_max.
-		--
-		-- It will return the arg_min and arg_max for later use.
-        --
 		local arg_min, arg_max = table.unpack(arg_size or { })
 		-- a nil arg_min means argument values are optional.
         if arg_min ~= nil and #values < arg_min then
@@ -27,7 +50,7 @@ local function arg_process(arg_list, cfg, spec_tbl)
         local props = table.remove(arg_list)
         if not props then goto finish_ProcessEachProp; end
 
-        local key, values = table.unpack(props)
+        local key, values = unpack(props)
         if key == '' then
             table.insert(remains, props)
             goto continue_ProcessEachProp
@@ -40,7 +63,7 @@ local function arg_process(arg_list, cfg, spec_tbl)
         end
 
         -- If values list length is less than arg_min, it will exit with error.
-        local arg_min, arg_max = check_arg_size(key, values, arg_specs.size)
+        local _, arg_max = check_arg_size(key, values, arg_specs.size)
         
         local values_need = {}
         for i=1, arg_max do table.insert(values_need, table.remove(values)); end
@@ -74,69 +97,96 @@ local function arg_process(arg_list, cfg, spec_tbl)
 	return remains, escaped
 end
 
-local function print_help(config, spec_meta)
-	io.stderr:write('Usage: http-server [options]\n')
-
-    local function nspace(n)
-        local str = ''
-        for i=1, n do str = str .. ' '; end
-        return str
+--[[
+    Print help text 
+]]--
+local print_help do
+    local function print_spec_tbl(tbl)
+        local cnt, mxlen = 0, 0
+        local strbuff = {}
+        for k, v in pairs(tbl) do
+            if type(v) == 'string' then goto continue; end
+            cnt = cnt + 1
+            local desc = v.desc or 'No description'
+            local klen = #k
+            if klen > mxlen then mxlen = klen; end
+            table.insert(strbuff, { klen, k, desc })
+            ::continue::
+        end
+        for _, i in ipairs(strbuff) do
+            local klen, k, desc = unpack(i)
+            write(string.format("\t%s%s\t%s\n", k, extext.nchar(mxlen - klen), desc))
+        end
+        return cnt
     end
 
-	local function print_tbl(tbl)
-		local cnt = 0
-        local maxlength = 0
-        local strbuff = {}
-		for k, v in pairs(tbl) do
-			if type(v) == 'string' then goto continue; end
-			cnt = cnt + 1
-			local desc = v.desc or 'No description'
-            local klen = #k
-            if klen > maxlength then maxlength = klen; end
-            table.insert(strbuff, { klen, k, desc })
-			::continue::
-		end
-        for _, i in ipairs(strbuff) do
-            local klen, k, desc = table.unpack(i)
-            io.stdout:write(string.format("\t%s%s\t%s\n", k, nspace(maxlength - klen), desc))
-        end
-		return cnt
-	end
+    function print_help(config, spec_meta)
+        write('Usage: http-server [options]\n')
+        local spec_tbl = unpack(spec_meta)
+        write('Options:\n')
+        print_spec_tbl(spec_tbl)
 
-	local spec_tbl = table.unpack(spec_meta)
-	io.stdout:write('Options:\n')
-	print_tbl(spec_tbl)
+        -- TODO: load dynamic help from handler dir
+        -- if config.handler_dir then
+        -- end
+    end 
 end
 
+local function no_leading_slash(str)
+    if not str then return str end
+    if str:sub(1, 1) == '/' then return str:sub(2) end
+    return str
+end
+local function no_tailing_slash(str)
+    if not str then return str end
+    if str:sub(-1, 1) == '/' then return path:sub(1, #str - 1) end
+    return str
+end
+
+local exos = require'utils'.os
 local DefaultConfig = {
-    binary_home = os.getenv('LUA_HTTP_SERVER_HOME');
+    binary_home = no_tailing_slash(os.getenv('LUA_HTTP_SERVER_HOME'));
 
     host = {'localhost'};
     port = '8000';
 
     root_path   = '.';
-    handler_dir = 'handlers/';
+    handler_dir = nil;
+
+    debug = false;
 }
-local CfgProto = {}
-do
-    function CfgProto.resolve(self, path)
-        return self.binary_home..'/'..path
-    end
-    setmetatable(DefaultConfig, { __index=CfgProto })
-end
+local __proto = {
+    resolve_home = function (self, path)
+        path = no_leading_slash(path)
+        return no_tailing_slash(self.binary_home)..'/'..exos.resolve(path)
+    end;
+
+    resolve_root = function (self, path)
+        path = no_leading_slash(path)
+        return no_tailing_slash(self.root_path)..'/'..exos.resolve(path)
+    end;
+
+    resolve_handler = function (self, path)
+        path = no_leading_slash(path)
+        local handler_dir = self.handler_dir
+        if not handler_dir then return nil end
+        return no_tailing_slash(handler_dir)..'/'..exos.resolve(path)
+    end;
+}
+setmetatable(DefaultConfig, { __index=__proto })
 
 local arg_meta = {
     {
         ['--host'] = { 
-            desc = '-h, Address to listen to';
+            desc = [[-h, Address to listen to, default is "localhost"]];
             size = { 1 }, set_prop = { 'host' };
         };
         ['--port'] = {
-            desc = '-p, Port to listen to';
+            desc = [[-p, Port to listen to, default is "8000"]];
             size = { 1, 1 }, set_prop = { 'port' };
         };
         ['--root'] = {
-            desc = '-d, Web root';
+            desc = [[-d, Web root, default is "."]];
             size = { 1 }, set_prop = { 'root_path' };
         };
 
@@ -150,28 +200,23 @@ local arg_meta = {
         };
         ['-dH'] = '--handler-path';
 
-        ['--no-page-cache'] = {
-            desc = '-nCP, Disable page caching';
-            size = { 0 }, set_prop = { 'no_page_cache', true }
-        };
-        ['--no-handler-cache'] = {
-            desc = '-nCH, Disable handler caching';
-            size = { 0 }, set_prop = { 'no_handler_cache', true };
-        };
-        ['--no-handler-config'] = {
-            desc = '-nPH, Disable handler config';
-            size = { 0 }, set_prop = { 'no_handler_config', true };
-        };
-
-        ['-nCP'] = '--no-page-cache';
-        ['-nCH'] = '--no-handler-cache';
-        ['-nPH'] = '--no-handler-config';
-
         ['--debug'] = {
             desc = '-d, Enable all debug features';
             size = { 0 }, set_prop = { 'debug', true };
         };
         ['-d'] = '--debug';
+
+        ['--log-level'] = {
+            desc = '-v, Set log level, 0-5 or ERROR,WARN,INFO,DEBUG,TRACE';
+            size = { 1 }, set_prop = { 'log_level', 'TRACE' };
+        };
+        ['-v'] = '--log-level';
+
+        ['--log-color'] = {
+            desc = '-lC, use colored log';
+            size = {0}, set_prop = { 'log_color', true };
+        };
+        ['-lC'] = '--log-color';
 
         ['--help'] = {
             desc = 'Show help and exit';
@@ -179,7 +224,6 @@ local arg_meta = {
         };
     };
     function (config)
-        
     end;
 }
 

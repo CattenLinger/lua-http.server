@@ -31,3 +31,5 @@ logs/
 # Environment
 .env
 .env.local
+
+/build

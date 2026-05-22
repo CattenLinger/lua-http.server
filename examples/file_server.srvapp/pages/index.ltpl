@@ -2,15 +2,7 @@
 <html>
 <head>
 	<title>Index of <% path %></title>
-	<style>
-		a { float: left; }
-		a::before { width: 1em; float: left; content: "\0000a0"; padding: 0 3pt 0 0; }
-		a.directory::before { content: "📁"; padding: 0 3pt 0 0; }
-		table { width: 800px; }
-		td { padding: 0 5px; white-space: nowrap; }
-		td:nth-child(2) { text-align: right; width: 3em; }
-		td:last-child { width: 1px; }
-	</style>
+	<%=include'index_style.ltpl'%>
 </head>
 <body>
     <h1>Index of <% path %></h1>

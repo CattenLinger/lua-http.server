@@ -89,9 +89,12 @@ return function(options)
     if not data.no_cache then
         data.cache = require'cache'.new(data.cache_options or {})
     end
-
-    return setmetatable(data, {
+    setmetatable(data, {
         __index = M;
         __call = function(...) return M.load(...) end;
     })
+    if string.sub(data.path, #data.path-1) ~= '/' then
+        data.path = data.path..'/'
+    end
+    return data
 end

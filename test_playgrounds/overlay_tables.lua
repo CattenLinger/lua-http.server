@@ -1,17 +1,12 @@
 
-local overlay_tables_for = require'./lib/utils'.overlay_tables_for
+local extable = require'./lib/utils'.table
 
-local layers = { 
+local tbl = extable.overlay {
+    { key0 = 'Z'; };
     { key1 = 'A'; };
     { key2 = 'B'; };
     { key3 = 'C'; };
-}
-
-local target = {
-    key0 = 'Z'
-}
-
-local tbl = overlay_tables_for(target, layers);
+};
 for i=0, 3 do
     print(tbl['key'..tostring(i)])
 end
