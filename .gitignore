@@ -33,3 +33,6 @@ logs/
 .env.local
 
 /build
+/*.luac
+/*.rock
+/temp

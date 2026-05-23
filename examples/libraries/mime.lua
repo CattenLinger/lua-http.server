@@ -3,25 +3,25 @@ local search_jump_table = require'utils'.search_jump_table
 local mime_mapping = {
     [''] = {"application/octet-stream"};
     -- images
-    ['.jpg'] = {'image/jpeg'};
+    ['.jpg']  = {'image/jpeg'};
     ['.jpeg'] = '.jpg';
-    ['.png'] = {'image/png'};
+    ['.png']  = {'image/png'};
     ['.webp'] = {'image/webp'};
-    ['.svg'] = {'image/svg'};
+    ['.svg']  = {'image/svg'};
 
     -- text
     ['.txt'] = {'text/plain; charset=utf8'};
     ['.lua'] = '.txt';
-    ['.md'] = '.txt';
+    ['.md']  = '.txt';
 
     -- web
     ['.html'] = {'text/html; charset=utf8'};
-    ['.htm'] = '.html';
+    ['.htm']  = '.html';
 
-    ['.css'] = {'text/css; charset=utf8'};
-    ['.js'] = {'text/javascript; charset=utf8'};
+    ['.css']  = {'text/css; charset=utf8'};
+    ['.js']   = {'text/javascript; charset=utf8'};
     ['.json'] = {'application/json; charset=utf8'};
-    ['.xml'] = {'application/xml; chatset=utf8'};
+    ['.xml']  = {'application/xml; chatset=utf8'};
 }
 
 local unpack = table.unpack

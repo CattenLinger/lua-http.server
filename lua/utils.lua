@@ -3,6 +3,7 @@ local utils = {}
 --- Get the current time in seconds.
 --- @return number the result of os.clock() * 100 (seconds)
 function utils.clock() return os.clock() * 100 end
+function utils.clock_ms() return os.clock() * 100000 end
 
 --- Install a function `critical` that fail when is called.
 --- If options.debug is true, it use the error() method, otherwise
@@ -208,6 +209,7 @@ end
 
     --[[ Overlay table ]]--
     local function overlay_search(backups, _, key)
+        local v
         for _, backup in ipairs(backups) do
             v = backup[key]
             if v ~= nil then return v end
@@ -364,7 +366,9 @@ end
         return newindex_hook_noop
     end
 
-    local newindex_hook_reject = function(_, key) error('attempted to modify a readonly value: '..key) end
+    local newindex_hook_reject = function(_, key)
+        error('attempted to modify a readonly value: '..key)
+    end
     --- Returns a method throw error when set a value
     function newindex_hook.reject()
         return newindex_hook_reject

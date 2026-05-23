@@ -1,5 +1,6 @@
 LUA HTTP SERVER
 ===
+[English Version](doc/README_EN.MD)
 
 这是一个基于 lua http 示例中的 http server 修改而成的服务器
 
@@ -69,8 +70,8 @@ server.lua 解决的是入站与出站，而其上就是应用逻辑，属于动
 
 - `server`：lua http 服务器实例，参照 lua-http 文档
 - `stream`：当前请求上下文对象，参照 lua-http 文档
-- `request`：服务器包装好的请求对象，见下：[Request 对象](#Request 对象)
-- `response`：服务器包装好的回复对象，见下：[Response 对象](#Response 对象)
+- `request`：服务器包装好的请求对象，见下：[Request 对象](#Request-对象)
+- `response`：服务器包装好的回复对象，见下：[Response 对象](#Response-对象)
 
 `on_error` 是可选项， 当 `on_reply` 出现错误时，就会尝试调用它。
 `on_reply` 可以通过在 `.config.lua` 中设置，也可以直接返回，
@@ -107,8 +108,10 @@ end
 ./bin/http-server --handler-path ./examples/file_server.srvapp
 ```
 
-可在当前路径下启动一个 http 文件服务器。
-file_server.srvapp 中也有一些比较有用的代码诸如渲染器、模版引擎以及缓存。
+可在当前路径下启动一个 http 文件服务器。 
+
+`example/libraries` 中也有一些比较有用的代码诸如渲染器、模版引擎以及缓存。
+在示例中，以软链的方式引用。
 
 一些 API 说明
 ---
@@ -119,19 +122,18 @@ CONFIG 在启动的时候通过参数处理生成。它在整个上下文中，�
 
 ### 字段
 
-|          名称 | 备注      |
-|------------:|:--------|
-|        host | 服务器监听地址 |
-|        port | 数字，监听端口 |
-|        root | 工作目录    |
-| handler_dir | 套件目录    |
-|       debug | 调试模式开关  |
+|             名称 | 备注      |
+|---------------:|:--------|
+|           host | 服务器监听地址 |
+|           port | 数字，监听端口 |
+|       root_dir | 工作目录    |
+|    handler_dir | 套件目录    |
+|          debug | 调试模式开关  |
 
 ### 方法
 
 |              名称 | 备注                                          |
 |----------------:|:--------------------------------------------|
-|    resolve_home | 得到相对可执行文件 home 目录的路径 (`CONFIG.bianry_home`) |
 |    resolve_home | 得到相对 web 根目录的路径 (`CONFIG.root_path`)        |
 | resolve_handler | 得到相对于套件目录的路径 (`CONFIG.handler_dir`)         |
 
@@ -143,6 +145,9 @@ Request 对象是个 lazy table，除了 stream 是请求流本体外，其中�
 - method：请求方法
 - path：url 路径
 - real_path：相对 CONFIG.root 的路径（已 url-decoded）
+- uri：原始请求 URI
+- query_string：uri 上的请求参数，如果没有则返回空字符串
+- query：uri 参数的键值对列表
 
 Request 对象可以用来存储处理过程中的数据，它只是个单纯的 lazy table。
 

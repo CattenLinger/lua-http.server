@@ -1,13 +1,9 @@
-local template = require"template"
+local template = require"lib.template"
 
---[[
-    Page Manager
-]]--
+--[[ Page Manager ]]
 local M = { path="pages/" }
 local DefaultOptions = setmetatable({}, {
-    __index    = { 
-        minify=false, no_cache=false,
-    };
+    __index    = { minify=false, no_cache=false, };
     __newindex = function() error('DefaultOptions is readonly') end;
 })
 M.DefaultOptions = DefaultOptions
@@ -87,7 +83,7 @@ avaliable options:
 return function(options)
     local data = options or {}
     if not data.no_cache then
-        data.cache = require'cache'.new(data.cache_options or {})
+        data.cache = require'lib.cache'.new(data.cache_options or {})
     end
     setmetatable(data, {
         __index = M;

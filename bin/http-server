@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
 set -e
 
-# Find the binary home
-LUA_HTTP_SERVER_HOME="$0"
-LUA_HTTP_SERVER_HOME=`realpath "$LUA_HTTP_SERVER_HOME"`
-LUA_HTTP_SERVER_HOME=`dirname "$LUA_HTTP_SERVER_HOME"`
-export LUA_HTTP_SERVER_HOME=`realpath "$LUA_HTTP_SERVER_HOME"/..`
-
-lua "$LUA_HTTP_SERVER_HOME"/lib/server.lua $@
+lua -e 'package.path="./lua/?.lua;./lua/?/init.lua;"..package.path' lua/server.lua $@
