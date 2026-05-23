@@ -1,8 +1,8 @@
 
 local lfs = require'lfs'
-local log = require'log'()
 
-local Cache = require'cache'.install_cleaner()
+local log = require'log'()
+local Cache = require'lib.cache'.install_cleaner()
 
 local resolve_controller = (function()
     local path = CONFIG:resolve_handler('controllers')..'/'
@@ -14,7 +14,7 @@ local cache = Cache.new { }
 Cache.cleaner.register { 'handlers', function() return cache end }
 
 -- Template caches
-local templates = require'pages' {
+local templates = require'lib.pages' {
     path=CONFIG:resolve_handler('pages')
 }
 Cache.cleaner.register { 'templates', function() return templates.cache end }

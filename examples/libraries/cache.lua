@@ -1,13 +1,9 @@
 local clock = require'utils'.clock
 
---[[
-    Cache pool object
-]]--
+--[[ Cache pool object ]]--
 local Cache = { cache_ttl = 1; cache_rebuild_interval = 60; }
 
---[[
-    Members
-]]--
+--[[ Members ]]--
 function Cache.get(self, key)
     local now = clock()
     local element = self.elements[key]
@@ -64,7 +60,7 @@ end
 local function Cache_rebuild_cache(self, now)
     local new_t = {}
     local cnt = 0
-    for k, v in pairs(t) do
+    for k, v in pairs(self.elements) do
         if (now - v[1]) > self.cache_ttl then goto continue; end
         cnt = cnt + 1
         new_t[k] = v

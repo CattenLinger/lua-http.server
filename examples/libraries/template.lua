@@ -81,7 +81,7 @@ end
 
 function template.compile(...)
     local f, err = loadstring(template.parse(...))
-    if err then error(err); end
+    if err then error(err) end
     return f()
 end
 
