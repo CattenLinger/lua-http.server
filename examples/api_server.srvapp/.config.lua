@@ -14,12 +14,17 @@ end)()
 
 local function load_action(action_path)
     local attr = lfs.attributes(action_path, "mode")
-    if not attr then return nil, 'access denied' end
-    if attr ~= 'file' then return nil, 'not a regular file' end
+    if not attr or attr ~= 'file' then return nil, 'access denied' end
+
     local newenv = setmetatable({ log=log }, { __index=_ENV })
     local func, err = loadfile(action_path, 't', newenv)
     if not func then return nil, err end;
-    return { func, env }
+    func = func() -- call the config
+    if not func then func = newenv.on_reply end
+    if 'function' ~= type(func) then
+        error('action does not configure any handler')
+    end
+    return { func, newenv }
 end
 
 local function on_notfound(request, response)

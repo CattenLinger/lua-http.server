@@ -2,7 +2,7 @@ local utils = {}
 
 --- Get the current time in seconds.
 --- @return number the result of os.clock() * 100 (seconds)
-function utils.clock() return os.clock() * 100 end
+function utils.clock() return os.time() end
 function utils.clock_ms() return os.clock() * 100000 end
 
 --- Install a function `critical` that fail when is called.
@@ -151,6 +151,7 @@ end
         for i=1, num do str = str..tostring(c) end
         return str
     end
+
 end
 
 --- Search a jump table uses string as key with non
@@ -175,37 +176,8 @@ function utils.search_jump_table(jtb, key, max_jump)
 end
 
 --[[ Table utility ]] do
-    local extable = {}
+    local extable = setmetatable({}, { __index=table })
     utils.table = extable
-
-    local extable_mt = { __index = table; }
-    extable_mt.__call = function(self, tbl)
-        tbl = tbl or {}
-        if self.is(tbl) then return tbl end;
-        return setmetatable(tbl, extable);
-    end
-    setmetatable(extable, extable_mt)
-
-    function extable.is(tb)
-        local mt = getmetatable(tb)
-        if not mt then return false; end
-        local ex = mt.__extable
-        if ex then return true end
-        return false
-    end
-
-    local function extable_idx(__extable, self, key)
-        local searcher = __extable.searcher
-        local idx = searcher.indecies
-        local v for k, v in ipair(idx) do
-            if type(idx) == 'table'
-            then v = idx[k]
-            else v = idx(self, k)
-            end
-            if v ~= nil then break end;
-        end
-        return v
-    end
 
     --[[ Overlay table ]]--
     local function overlay_search(backups, _, key)
@@ -287,9 +259,63 @@ end
         return setmetatable(target or {}, readonly_mt)
     end
 
-    function extable.print(tb, p)
-        local print = p or print
-        for k, v in pairs(tb) do print(k, v) end
+    function extable.print(tb, p, callback)
+        callback = p or print
+        for k, v in pairs(tb) do callback(k, v) end
+    end
+
+    --- Collect items from an iterator
+    --- if the iterator returns multiple entries,
+    --- elements will be packed into lists
+    --- @param iter function iterator function
+    --- @return table list of elements
+    function extable.collect(iter)
+        local next, list = iter, {}
+
+        local values = table.pack(next())
+        local l = #values
+        if l == 0 then return list end
+        if l == 1 then goto single else goto multiple end
+
+        ::single:: do
+            table.insert(list, values[1])
+            while values do
+                values = next()
+                table.insert(list, values)
+            end
+            return list
+        end
+
+        ::multiple:: do
+            repeat
+                table.insert(list, values)
+                values = table.pack(next())
+            until not values[1]
+            return list
+        end
+    end
+
+    --- Make a map from list of entry
+    ---
+    --- If entry is not a list or only contains
+    --- 1 element, returns empty table.
+    --- Otherwise take first two argument and form a table.
+    ---
+    --- Duplicated keys will be overwrite.
+    function extable.from_entries(list)
+        local item, result = nil, {}
+        local iter, tb, idx = ipairs(list)
+        idx, item = iter(tb, idx)
+        if not (item and type(item) == 'table' and #item >= 2)
+        then return result
+        end
+
+        repeat
+            local key, value = table.unpack(item)
+            result[key] = value
+            idx, item = iter(tb, idx)
+        until not item
+        return result
     end
 end
 

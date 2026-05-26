@@ -29,22 +29,29 @@ EventQueue = require'cqueues'.new()
     local clock = require'utils'.clock
     local cqueues = require'cqueues'
     local gc = false
-    local lastgc = clock()
 
     function _G.NotifyNextGC() gc = true end
 
+    local lastgc = clock()
+    local function check_force_gc(now)
+        if (now - lastgc) <= 60 then return end;
+        lastgc = now;
+        gc = true;
+        log:trace('Scheduled force GC to next check.')
+    end
+
+    log:info("GC trigger job stared, interval: 10s.")
     -- Check GC flag every 10 seconds
     EventQueue:wrap(function()
         log:info("GC trigger job stared, interval: 10s.")
         ::begin_loop::
         cqueues.sleep(10)
-        local now = clock()
-        if (now - lastgc) > 60 then lastgc = now; gc = true; end
-        if not gc then goto begin_loop; end
+        check_force_gc(clock())
+        if not gc then goto begin_loop end
 
         gc = false;
-        local r = collectgarbage();
-        log:trace("GC triggered. (%d)", r);
+        local ret = collectgarbage();
+        log:trace("GC triggered. (%d)", ret);
         goto begin_loop
     end)
 end

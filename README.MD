@@ -148,6 +148,7 @@ Request 对象是个 lazy table，除了 stream 是请求流本体外，其中�
 - uri：原始请求 URI
 - query_string：uri 上的请求参数，如果没有则返回空字符串
 - query：uri 参数的键值对列表
+- content_type： 请求类型，若无则返回空
 
 Request 对象可以用来存储处理过程中的数据，它只是个单纯的 lazy table。
 
@@ -158,14 +159,16 @@ Response 对象用于对返回作出便捷操作。对 Response 的修改会被�
 其中 stream 是请求流本体，暂存的 header 是个 lazy property。其他的是方法：
 
 - `:status(number|string)`：设置 HTTP 状态码，返回 response 本身
+- `:header(key, value)`：设置自定义的 HTTP 返回头
 - `:content_type(string)`：设置内容类型头字符串，返回 response 本身
 - `:finish(nil|string|function|file)`：结束请求
 
 除了 `finish` 以外，其他设置方法均返回自身。
-finish 如果是 nil，则会在处理结束后，写完 HTTP 头就关闭流；
-如果是 string，则直接作为 body 输出；
-如果是 function，则会传入一个打印函数，往流上打印内容；
-如果是 file（userdata），则会将其写出流。
+它接受不同的输入会有不同的处理逻辑：
+- 如果是 nil，则会在处理结束后，写完 HTTP 头就关闭流；
+- 如果是 string，则直接作为 body 输出；
+- 如果是 function，则会传入一个打印函数，往流上打印内容；
+- 如果是 file（userdata），则会将其写出流。
 
 调用 `finish` 后 `response` 将拒绝修改，修改自身的方法的调用会触发错误。
 如果 HTTP 请求方法为 `HEAD`，无论是否结束 response，在写完 http 头后，流都会被主动关闭

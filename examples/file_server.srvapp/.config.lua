@@ -10,7 +10,7 @@ local resolve_controller = (function()
 end)()
 
 -- Handler caches
-local cache = Cache.new { }
+local cache = Cache.new { cache_ttl=1 }
 Cache.cleaner.register { 'handlers', function() return cache end }
 
 -- Template caches
