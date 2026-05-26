@@ -1,7 +1,7 @@
 local lfs = require'lfs'
 local promise = require'cqueues.promise'
 
-local cache_path = CONFIG.root_path..'/get_remote.cache'
+local cache_path = CONFIG.root_path..'/manifest.cache'
 local function cache_file_exists()
     return 'file' == lfs.attributes(cache_path, 'mode')
 end
