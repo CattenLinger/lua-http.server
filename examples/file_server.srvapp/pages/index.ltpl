@@ -2,6 +2,7 @@
 <html>
 <head>
 	<title>Index of <% path %></title>
+	<meta charset="UTF-8">
 	<%=include'index_style.ltpl'%>
 </head>
 <body>

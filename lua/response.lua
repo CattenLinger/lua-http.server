@@ -22,14 +22,19 @@ end
 
 local function set_content_type(self, ct)
     assert_context_not_finished(self)
-    self.headers:append('content-type', ct)
+    self.headers:append('content-type', tostring(ct))
     return self
 end
 
 local function set_status(self, st)
     assert_context_not_finished(self)
-    if type(st) ~= 'string' then st = tostring(st) end
-    self.headers:append(":status", st)
+    self.headers:append(":status", tostring(st))
+    return self
+end
+
+local function add_header(self, key, value)
+    assert_context_not_finished(self)
+    self.headers:append(key:lower(), tostring(value))
     return self
 end
 
@@ -97,6 +102,7 @@ local getters = {
     -- Methods
     content_type = function() return set_content_type end;
     status       = function() return set_status end;
+    header       = function() return add_header end;
     finish       = function() return finish end;
 }
 local __mt = { __index=getters }

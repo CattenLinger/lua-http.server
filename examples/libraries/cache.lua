@@ -1,21 +1,31 @@
-local clock = require'utils'.clock
+-- clock() returns integer seconds
+local clock do
+    local sysclock = require'utils'.clock
+    clock = function() return sysclock() end
+end
 
 --[[ Cache pool object ]]--
-local Cache = { cache_ttl = 1; cache_rebuild_interval = 60; }
+local Cache = {
+    cache_ttl = 1;
+    cache_rebuild_interval = 60;
+    clock = clock;
+}
 
 --[[ Members ]]--
+
+--- Get cache element by key
+--- @param key string cache key
+--- @return any|nil cached element or nil if expired or not found
 function Cache.get(self, key)
-    local now = clock()
+    local now = self.clock()
     local element = self.elements[key]
     if not element then return nil; end
     
     local birth, value = table.unpack(element)
-    if (now - birth) > self.cache_ttl then
-        self.elements[key] = nil
-        return nil
-    end
+    if (now - birth) <= self.cache_ttl then return value end
 
-    return value
+    self.elements[key] = nil
+    return nil
 end
 
 --- Get cache element by key, if element not presented
@@ -24,23 +34,28 @@ end
 --- @param provider function value provider
 --- @return any|nil, any|nil
 function Cache.get_or_computed(self, key, provider, ...)
-    local value
-    value = self:get(key)
-    if value then return value end;
+    local value = self:get(key)
+    if value ~= nil then return value end;
 
     local error
     value, error = provider(key, ...)
     if error then return nil, error end
-    self:put(key, value)
+
+    if value ~= nil then self:put(key, value) end
     return value
 end
 
+--- Put an element to cache associated with key
+--- @param key string a key
+--- @param value any value
+--- @return any old cache entry or nil
 function Cache.put(self, key, value)
     local old = self.elements[key]
-    self.elements[key] = { clock(), value }
+    self.elements[key] = { self:clock(), value }
     return old
 end
 
+--- Discard all cached items
 function Cache.flush(self)
     self.elements = {}
 end
@@ -71,7 +86,7 @@ local function Cache_rebuild_cache(self, now)
 end
 
 function Cache.evict_cache(self)
-    local now = clock()
+    local now = self.clock()
     local delta = now - self.birth
     if delta < self.cache_rebuild_interval
     then return Cache_scan_elements(self, now)
@@ -79,9 +94,7 @@ function Cache.evict_cache(self)
     end
 end
 
---[[
-    Static Methods
-]]--
+--[[ Static Methods ]]--
 local __mt = { 
     __class = '::cache_pool';
     __index = Cache;
@@ -96,9 +109,10 @@ end
 function Cache.new(options)
     local data = options or {}
     data.elements = {};
-    data.birth = clock();
+    setmetatable(data, __mt)
 
-    return setmetatable(data, __mt)
+    data.birth = data:clock();
+    return data
 end
 
 --[[

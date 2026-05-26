@@ -18,6 +18,10 @@ function getters.method(self)
     return assert(self.headers:get':method')
 end
 
+function getters.content_type(self)
+    return self.headers:get'content-type' or ''
+end
+
 function getters.uri(self)
     return assert(self.headers:get':path')
 end

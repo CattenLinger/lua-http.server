@@ -1,7 +1,12 @@
 local log = require"log"()
 local ce  = require "cqueues.errno"
 
-local mime_mapping = require'mime'
+local mime = (function()
+	local fd, err = io.open(CONFIG:resolve_handler('mime.type.txt'))
+	if not fd then critical('Failed to load MIME: '..err) end
+	local r = require'lib.mime'(fd)
+	return r
+end)()
 local render_error = pages'error.ltpl'
 
 local function on_notfound(request, response)
@@ -56,7 +61,7 @@ return function (request, response)
 
 	response:status("200")
 	
-    local mime_type = mime_mapping(real_path)
+    local mime_type = mime:content_type_of(real_path)
 
 	log:info("Got file %s , type: %s", real_path, mime_type)
 	response:content_type(mime_type)

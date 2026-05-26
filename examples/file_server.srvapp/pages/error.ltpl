@@ -2,6 +2,7 @@
 <html>
 <head>
 	<title><% title %></title>
+	<meta charset="UTF-8">
 	<%=include'includes/global_style.ltpl'%>
 </head>
 <body>
