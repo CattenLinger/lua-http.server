@@ -1,13 +1,13 @@
 LUA HTTP SERVER
 ===
-[中文版本](/README.MD)
+[Chinese Version](../README.MD)
 
-This project is a server modified from the lua-http example HTTP server.
+This is an HTTP server modified from the example HTTP server in lua-http.
 
 Dependencies:
 
-- [lua-http](https://github.com/daurnimator/lua-http)
-- [luafilesystem](https://lunarmodules.github.io/luafilesystem/manual.html) (used by demos under `/examples`)
+- [lua http](https://github.com/daurnimator/lua-http)
+- [luafilesystem](https://lunarmodules.github.io/luafilesystem/manual.html) (demos under `/examples`)
 
 Running:
 
@@ -20,77 +20,80 @@ Running:
 HTTP Server
 ---
 
-The HTTP server handles requests in the following steps:
+The HTTP server's processing flow:
 
-1. Inbound: validate the basic request format
+1. Inbound: validate basic request format
 2. Select an appropriate handler
 3. Execute handler code
-4. Outbound: send headers and body (unless the request is HEAD)
+4. Outbound: return headers and content (if not a HEAD request)
 
-`server.lua` implements the inbound and outbound handling; application logic sits on top of it and is considered dynamic. Without any configuration (handler package), the server will simply echo request headers.
+`server.lua` handles the inbound and outbound processing, while application logic sits above it and is considered dynamic content.
+Without configuration ([Application Suite](#application-suite-and-loading)), it simply outputs request header information.
+
 
 Global API & Objects
 ---
 
-A set of global APIs are provided to let application code interact with the server conveniently.
+Global API allows injected code to conveniently trigger server behaviors.
 
-When using dynamically loaded code, be careful to isolate it properly to protect server context.
+When using dynamic code loading, pay attention to proper isolation to protect the server context.
 
-- EventQueue: reference to the server's cqueue EventLoop — all coroutine operations should be attached here
-- NotifyNextGC: signal to notify the next GC
-- Server: the server object
-- CONFIG: server configuration
+- EventQueue: Reference to the server's cqueue EventLoop, all coroutine operations need to be attached here
+- NotifyNextGC: Notify the next garbage collection
+- Server: Server object
+- CONFIG: Server configuration
 
-Packages and loading
+Application Suite and Loading
 ---
 
-When no handler package is specified the server will only return request headers. To enable richer behavior, pass `--handler-path` to specify a package path.
+Without a corresponding suite, the server is just a server that returns request headers.
+To have richer functionality, you must specify the suite path with the `--handler-path` parameter.
 
-A package is a folder that contains a `.config.lua`. When a package is used, its path is added to the Lua package path.
+A suite is a folder containing `.config.lua`. When using a suite, the suite's path is added to the lua path.
 
-`.config.lua` describes how the package should handle requests. Its _ENV is an independent table that inherits from the server context. If the package loads code dynamically, take care to isolate different _ENV tables.
+`.config.lua` is a description file for the suite, describing how requests should be handled when they arrive.
+The _ENV of the suite description file is an independent table that inherits from the server context.
+If the suite uses dynamic code loading, be careful to isolate different _ENV tables.
 
-Package lifecycle follows the server process — the package is loaded at startup and will not be updated during runtime. If `.config.lua` changes, the server needs to be restarted for changes to take effect.
+The suite's lifecycle follows the entire server, so suite configuration won't update after startup.
+If `.config.lua` is updated, the server needs to be restarted for changes to take effect.
 
-Important interfaces
----
+### Important Interfaces
 
-The package configuration is the entry point for HTTP requests: it must provide an inbound handler and may optionally provide an error handler. When an HTTP request arrives, the server will call the handler code provided by the configuration. The handler uses two entry points:
+Suite configuration is the entry point for HTTP requests. It must configure an inbound handler, and may optionally configure an error handler.
+When an HTTP request arrives, the server calls the code returned by the configuration to handle it. It uses two methods:
 
 1. `on_reply(server, stream, request, response)`
 2. `on_error(error, server, stream, request, response)`
 
 Where:
 
-- `server`: the lua-http server instance (see lua-http docs)
-- `stream`: the request stream context (see lua-http docs)
-- `request`: the wrapped request object provided by the server (see "[Request object](#Request-object)" below)
-- `response`: the wrapped response object provided by the server (see "[Response object](#Response-object)" below)
+- `server`: lua http server instance, refer to lua-http documentation
+- `stream`: Current request context object, refer to lua-http documentation
+- `request`: Request object wrapped by the server, see below: [Request Object](#request-object)
+- `response`: Response object wrapped by the server, see below: [Response Object](#response-object)
 
-`on_error` is optional; if `on_reply` raises an error the server will attempt to call `on_error`.
-
-`on_reply` can be defined inside `.config.lua` or returned directly from it — the returned value takes precedence.
-
-Example `.config.lua`:
+`on_error` is optional. When `on_reply` produces an error, the server will attempt to call it.
+`on_reply` can be set in `.config.lua` or returned directly.
+The server will prefer the return value.
 
 ```lua
 -- .config.lua
 
--- Define an on_reply handler in the configuration. If the server does not obtain a handler
--- from the configuration, it will use this function to handle requests.
+-- Set directly in the configuration. If the server doesn't get a handler when processing
+-- the configuration, it will use this function to handle requests.
 function on_reply(_, _, request, response)
     error('~(-:>)')
 end
 
--- Optionally provide an error handler
+-- Optionally configure an error handler
 function on_error(err, _, _, request, response)
     response:status(500)
             :content_type('text/plain')
             :finish("Oops: " .. err)
 end
 
--- If the configuration returns a function, that function will be used as the handler and
--- the above on_reply will not be used.
+-- This handler will be used, the on_reply above won't be called
 return function(_, _, _, response)
     response:status(200)
             :content_type('text/plain')
@@ -98,71 +101,76 @@ return function(_, _, _, response)
 end
 ```
 
-Example packages
----
+### Example Suites
 
-See the example package under `/examples`, for example:
+You can view example suites in `/examples`, for example:
 
 ```bash
 ./bin/http-server --handler-path ./examples/file_server.srvapp
 ```
 
-This will start a simple file server using the package in the current directory.
+This launches an HTTP file server in the current path.
 
-`examples/libraries` also contains several useful helper modules such as a renderer, template engine, and caching; the examples reference these via symbolic links.
+`examples/libraries` also contains useful code such as renderers, template engines, and caching.
+In the examples, these are referenced via symbolic links.
 
-API notes
+Some API Documentation
 ---
 
-### CONFIG object
+### CONFIG Object
 
-`CONFIG` is created from command-line arguments at startup and is available throughout the server context.
+CONFIG is generated through command-line parameter processing at startup. It is available throughout the context at any time.
 
-Fields
+### Fields
 
-- host: server bind address
-- port: numeric listening port
-- root_dir: working directory
-- handler_dir: package directory
-- debug: debug mode flag
+|             Name | Remarks       |
+|---------------:|:-----------|
+|           host | Server listening address |
+|           port | Number, listening port |
+|       root_dir | Working directory    |
+|    handler_dir | Suite directory    |
+|          debug | Debug mode switch  |
 
-Methods
+### Methods
 
-- resolve_home: get a path relative to the web root (`CONFIG.root_path`)
-- resolve_handler: get a path relative to the handler directory (`CONFIG.handler_dir`)
+|              Name | Remarks                                          |
+|----------------:|:--------------------------------------------|
+|    resolve_home | Get the path relative to the web root directory (`CONFIG.root_path`)        |
+| resolve_handler | Get the path relative to the suite directory (`CONFIG.handler_dir`)         |
 
-### Request object
+### Request Object
 
-The Request object is a lazy table. Apart from `stream` (the raw request stream), these fields are computed lazily:
+The Request object is a lazy table. Besides `stream` which is the request stream itself, these fields are auto-calculated:
 
-- headers: HTTP headers object (see lua-http docs)
-- method: request method
+- headers: HTTP header object, refer to lua-http documentation
+- method: Request method
 - path: URL path
-- real_path: path relative to `CONFIG.root` (URL-decoded)
-- uri: original request URI
-- query_string: query string from the URI (empty string if none)
-- query: table of parsed query parameters (key/value pairs)
+- real_path: Path relative to CONFIG.root (URL-decoded)
+- uri: Raw request URI
+- query_string: Request parameters on the uri, returns empty string if none
+- query: Key-value pair list of uri parameters
+- content_type: Request content type, returns empty string if none
 
-The Request object can be used to store data during request processing — it is just a lazy table.
+The Request object can be used to store data during processing. It is just a simple lazy table.
 
-### Response object
+### Response Object
 
-The Response object provides convenient operations for building responses. Changes to the Response are buffered and applied outbound after the handler completes.
+The Response object is used for convenient operations on the response. Changes to Response are cached and executed after the handler code completes.
 
-`stream` is the raw request stream. Buffered headers are a lazy property. The following methods are provided:
+The `stream` is the request stream itself, and cached headers are a lazy property. The rest are methods:
 
-- `:status(number|string)`: set the HTTP status code, returns the response object
-- `:content_type(string)`: set the Content-Type header, returns the response object
-- `:finish(nil|string|function|file)`: finish the response
+- `:status(number|string)`: Set HTTP status code, returns response itself
+- `:header(key, value)`: Set custom HTTP response header
+- `:content_type(string)`: Set content type header string, returns response itself
+- `:finish(nil|string|function|file)`: End the request
 
-Except for `finish`, other setter methods return the response object to allow chaining. `finish` behavior:
+Except for `finish`, all other setting methods return self.
+It handles different inputs with different logic:
+- If nil, the stream will close after writing HTTP headers when processing completes;
+- If string, it's used directly as the body output;
+- If function, a print function will be passed to write content to the stream;
+- If file (userdata), it will be written to the stream.
 
-- If `finish(nil)`, the server will write headers and then close the stream without a body.
-- If `finish(string)`, the string is written as the body.
-- If `finish(function)`, the function will be passed a print-like function used to write to the stream.
-- If `finish(file)` (userdata), the file will be streamed to the client.
-
-After calling `finish`, the Response will reject further modifications; attempts to modify it will raise an error.
-
-If the request method is `HEAD`, the server will always close the stream after writing headers and ignore any body writes.
+After calling `finish`, the response will refuse modifications. Calling modification methods will trigger an error.
+If the HTTP request method is `HEAD`, regardless of whether the response is finished, the stream will be actively closed after writing http headers, and body writes will be ignored.
 
