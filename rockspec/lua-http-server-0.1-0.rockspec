@@ -2,7 +2,7 @@ package = "lua-http-server"
 version = "0.1-0"
 source = {
     url = "git+https://git.shinonometn.com/cattenlinger/lua-http-file-server.git";
-    branch = 'improve/experiments';
+    branch = 'master';
 }
 description = {
     detailed = "这是一个基于 lua http 示例中的 http server 修改而成的 http server",
