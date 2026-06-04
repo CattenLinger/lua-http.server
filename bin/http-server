@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -e
-
-lua -e 'package.path="./lua/?.lua;./lua/?/init.lua;"..package.path' lua/server.lua $@
+HOME_DIR=$(realpath $(dirname $(realpath "$0"))"/..")
+lua -e "package.path='$HOME_DIR/src/?.lua;$HOME_DIR/src/?/init.lua;'..package.path" "$HOME_DIR/src/server.lua" $@

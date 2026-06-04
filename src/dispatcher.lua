@@ -29,6 +29,11 @@ local DefaultOnErrorHandler = function(err, _, _, request, response)
             :finish(err)
 end
 
+local __proto = {
+    on_reply = DefaultEmptyDispatcher;
+    on_error = DefaultOnErrorHandler;
+}
+
 --[[
     Dispatch procedure entry
 --]]
@@ -59,7 +64,7 @@ local function is_in_lua_path(path)
     return false
 end
 
-local function dispatcher_checkcfg(self, options)
+local function dispatcher_checkcfg(self)
     local cfg_env, cfg_idx_tbls = extable.overlay { _G }
     self.config = cfg_env
 
@@ -105,14 +110,12 @@ local function dispatcher_checkcfg(self, options)
     end
 end
 
-local __mt={ __call=dispatcher_entry }
+local __mt={ __index=__proto, __call=dispatcher_entry }
 local function dispatcher_constructor(options)
-    local data = {}
-    dispatcher_checkcfg(data, options)
+    local data = options or {}
+    dispatcher_checkcfg(data)
     return setmetatable(data, __mt)
 end
-return setmetatable({
-
-}, {
+return setmetatable({}, {
     __call = function(_, ...) return dispatcher_constructor(...) end
 })

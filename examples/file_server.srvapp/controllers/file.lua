@@ -61,7 +61,7 @@ return function (request, response)
 
 	response:status("200")
 	
-    local mime_type = mime:content_type_of(real_path)
+    local mime_type = mime:content_type_of(request.path:lower())
 
 	log:info("Got file %s , type: %s", real_path, mime_type)
 	response:content_type(mime_type)

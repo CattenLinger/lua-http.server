@@ -152,7 +152,7 @@ local function no_tailing_slash(str)
     return str
 end
 
-local exos = require'utils'.os
+local os = require'utils'.os
 local DefaultConfig = {
     -- Persist bootstrap paths
     lib_path  = package.path;
@@ -169,14 +169,14 @@ local DefaultConfig = {
 local __proto = {
     resolve_root = function (self, path)
         path = no_leading_slash(path)
-        return no_tailing_slash(self.root_path)..'/'..exos.resolve(path)
+        return no_tailing_slash(self.root_path)..'/'..os.resolve(path)
     end;
 
     resolve_handler = function (self, path)
         path = no_leading_slash(path)
         local handler_dir = self.handler_dir
         if not handler_dir then return nil end
-        return no_tailing_slash(handler_dir)..'/'..exos.resolve(path)
+        return no_tailing_slash(handler_dir)..'/'..os.resolve(path)
     end;
 }
 setmetatable(DefaultConfig, { __index=__proto })
@@ -213,6 +213,12 @@ local arg_meta = {
         };
     };
     function (config)
+        -- normalize options
+        for _, key in ipairs { 'host', 'port' } do
+            if type(config[key]) ~= 'table'
+            then config[key] = { config[key] }
+            end
+        end
     end;
 }
 
