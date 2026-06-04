@@ -49,12 +49,12 @@ local function level_factory(self, idx, line_start, line_end, time_start, time_e
 end
 
 function __proto.get_level_name(self)
-    local level = self.level
+    local level = meta(self).level
     if level <= 0 then return 'SILENCE' end
-    return level_map[self.level][1]
+    return level_map[level][1]
 end
 
-function rebuild_loggers(self, max_level)
+local function rebuild_loggers(self, max_level)
     local _self = meta(self)
     max_level = max_level or _self.level
     local loggers = {}
@@ -108,7 +108,7 @@ setters.level = function (self, key, newval)
     _self._[key] = newval or __proto[key]
 
     local level = newval
-    if type(level) ~= 'number' then level = (tonumber(level_idx) or #level_map) end
+    if type(level) ~= 'number' then level = (level_idx[level] or #level_map) end
     if level < 0 then level = 0 elseif level > #level_map then level = #level_map end
     _self.level = level
 end

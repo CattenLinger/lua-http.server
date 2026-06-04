@@ -11,6 +11,10 @@ local function assert_context_not_finished(self)
     end
 end
 
+local function get_is_finished(self)
+    return (self['.finish'] or {})[1] or false
+end
+
 local function create_new_header(self)
     assert_context_not_finished(self)
 
@@ -99,6 +103,7 @@ end
 local getters = {
     -- Properties
     headers      = create_new_header;
+    is_finished  = get_is_finished;
     -- Methods
     content_type = function() return set_content_type end;
     status       = function() return set_status end;

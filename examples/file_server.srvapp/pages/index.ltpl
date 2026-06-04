@@ -6,6 +6,7 @@
 	<%=include'index_style.ltpl'%>
 </head>
 <body>
+<img src='https://github.com/LisovetsAlex/webindows/blob/main/backend/system/webindows/public/Assets/FileExplorer.png?raw=true'>
     <h1>Index of <% path %></h1>
     <table>
     <thead><tr>
@@ -14,7 +15,7 @@
     <tbody>
 <? for i, file in ipairs(files) do ?>
         <tr>
-            <td><a class='<% file.css_cls %>' href='<% file.href %>'
+            <td class="filename"><a class='<% file.css_cls %>' href='<% file.href %>'
                 ><% file.filename %></a></td>
             <td title='<% file.size %> bytes'><% file.size_h %></td>
             <td><time><% file.time %></time></td>

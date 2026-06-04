@@ -1,0 +1,7 @@
+/test
+/docker/Dockerfile
+/build
+/build.make
+/.idea
+/.git
+/temp

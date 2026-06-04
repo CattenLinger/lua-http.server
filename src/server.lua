@@ -9,7 +9,15 @@ local log = (require'log':set_defaults {
     use_color = config.log_color;
     level     = config.log_level or 'INFO'
 }).create()
-_ENV__mt.__newindex = function(self, key, value)
+local ServerCtx_locked = false
+_ENV__mt.__newindex = function(_, key, value)
+    if ServerCtx_locked then
+        return log:warn(
+                "Rejected global %s value '%s'. Server Global is unwritable if debug=false.",
+                type(value), key
+        )
+    end
+
     rawset(ServerCtx, key, value)
     log:debug("Registered global %s '%s'",type(value),key)
 end
@@ -129,14 +137,16 @@ local server_onstream, server_onerror do
 
     function server_onerror(myserver, context, op, err, errno)
         local msg = string.format("%s on %s failed", op, tostring(context))
-        if err then msg = string.format("%s: %s", msg, err); end
+        if err   then msg = string.format("%s: %s", msg, err) end
+        if errno then msg = string.format("%s (%s)", msg, tostring(errno)) end
         log:error(msg)
     end
 end
 
 Server = assert(require'http.server'.listen {
+    -- TODO: support multiple host and port
     host = CONFIG.host[1];
-    port = CONFIG.port;
+    port = CONFIG.port[1];
     max_concurrent = 100;
     onstream = server_onstream;
     onerror = server_onerror;
@@ -150,6 +160,7 @@ log:info("Now listening on port %d", bound_port)
 
 -- Start the main server loop
 if not CONFIG.debug then
+    ServerCtx_locked = true
     local rs, e = pcall(function() return Server:loop(); end)
     if not rs then log:info("Server exited: %s", e); end
 else

@@ -1,6 +1,6 @@
-package.path = './lib/?.lua;'..package.path
+package.path = './lua/?.lua;'..package.path
 
-local log = (require'./lib/log':set_defaults {
+local log = (require'./lua/log':set_defaults {
     use_color=true;
     --date_format='[%d/%b/%Y:%H:%M:%S %z]';
 })()
@@ -22,6 +22,12 @@ end
 
 for i = 0, 5 do
     log.level = i
+    log:reconfigure()
+    print_all_level()
+end
+
+for _, lvl in ipairs { 'ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE' } do
+    log.level = lvl
     log:reconfigure()
     print_all_level()
 end

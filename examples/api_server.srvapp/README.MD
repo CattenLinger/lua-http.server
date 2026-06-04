@@ -3,7 +3,7 @@ Api server demo
 
 An example suit to show how to write an api server.
 
-Demo urls
+Demo URLs
 ---
 
 ### [GET] /manifest
@@ -23,3 +23,6 @@ Use any password in basic auth header 'Authorization' will return
 username and password. 
 
 Request with header missing will return 403.
+
+### [GET] /shell_call?cmd={cmd_template_name}
+Call shell function, returns stdout content

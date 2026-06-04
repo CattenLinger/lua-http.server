@@ -59,7 +59,7 @@ function utils.arg_parse(args)
 end
 
 --[[ Os utility (does not supporting windows) ]] do
-    local exos = {}
+    local exos = setmetatable({}, { __index=os })
     utils.os = exos
 
     --[[
@@ -68,9 +68,9 @@ end
     function exos.realpath(path)
         local fd = io.popen("realpath '"..path.."'")
         if not fd then error('could not execute shell command for realpath') end
-        local path = fd:read('l')
+        local line = fd:read('l')
         fd:close()
-        return path
+        return line
     end
 
     --[[
@@ -316,6 +316,23 @@ end
             idx, item = iter(tb, idx)
         until not item
         return result
+    end
+
+    function extable.entries(t)
+        local r = {}
+        for key, value in pairs(t) do
+            table.insert(r, { key, value })
+        end
+        return r
+    end
+
+    --- Map index of list as value, and value of list as key
+    --- @parma list table
+    --- @return table
+    function extable.to_set(list)
+        local t = {}
+        for value, key in ipairs(list) do t[key] = value end
+        return t
     end
 end
 
