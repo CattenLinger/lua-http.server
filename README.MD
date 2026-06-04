@@ -17,6 +17,11 @@ LUA HTTP SERVER
 ./bin/http-server --help
 ```
 
+构建：
+```bash
+docker build -t lua-http.server:latest -f docker/Dockerfile .
+```
+
 HTTP 服务器
 ---
 

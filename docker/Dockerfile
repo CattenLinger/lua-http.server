@@ -1,5 +1,6 @@
 ## Build dev environment
-FROM debian:bookworm-slim AS lua52_dev_base
+FROM debian:bookworm-slim AS lua52_build_base
+
 RUN DEBIAN_FRONTEND=no-interactive apt update \
     && apt install lua5.2 liblua5.2-dev luarocks \
            libssl-dev git build-essential m4 \
@@ -7,10 +8,11 @@ RUN DEBIAN_FRONTEND=no-interactive apt update \
            --no-install-recommends -y \
     && rm -rf /var/lib/apt/lists/*
 
+RUN luarocks install http \
+    && luarocks install luafilesystem
+
 WORKDIR /workspace
 COPY .  /workspace
-
-RUN luarocks install luafilesystem
 RUN make all
 
 FROM debian:bookworm-slim
@@ -20,13 +22,13 @@ RUN DEBIAN_FRONTEND=no-interactive apt update \
            --no-install-recommends -y \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=lua52_dev_base \
+COPY --from=lua52_build_base \
     /workspace/docker/docker-entrypoint.sh \
     /workspace/build.make/runtime.tar.gz   \
     /workspace/build.make/app.tar.gz       \
     /
 
-COPY --from=lua52_dev_base \
+COPY --from=lua52_build_base \
     /workspace/docker/docker-entrypoint.d  \
     /docker-entrypoint.d
 

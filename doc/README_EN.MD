@@ -17,6 +17,11 @@ Running:
 ./bin/http-server --help
 ```
 
+Build:
+```bash
+docker build -t lua-http.server:latest -f docker/Dockerfile .
+```
+
 HTTP Server
 ---
 

@@ -22,7 +22,7 @@ info:
 	@echo 'Target outputs    :' $(OBJS)
 	@echo '================================'
 
-all: install_deps build app.tar.gz runtime.tar.gz
+all: build app.tar.gz runtime.tar.gz
 
 build: prepare_dir $(OBJS) bin/http-server
 	# Copy files
