@@ -43,4 +43,6 @@ USER www-data
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 EXPOSE 80
+STOPSIGNAL SIGINT
+
 CMD ["http-server", "-h", "0.0.0.0", "-p", "80"]

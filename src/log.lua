@@ -2,16 +2,19 @@ local table = require'utils'.table
 local metatable = require'utils'.metatable
 
 -- default values of each logger
-local __defaults = { stream=io.stderr, level='TRACE', level_align='r', date_format='[%d/%b/%Y:%H:%M:%S %z]' }
-local __proto_data = {}
+local __defaults = {
+    {};
+    { stream=io.stderr, level='TRACE', level_align='r', date_format='[%d/%b/%Y:%H:%M:%S %z]' };
+}
 local __proto = setmetatable({}, {
-    __index = function(self, key) return __proto_data[key] or __defaults[key] end
+    __index = function(_, key) return __defaults[1][key] or __defaults[2][key] end
 })
 
-if os.getenv('TERM'):lower():match('color$') then __proto.color = true end
+if (os.getenv('TERM') or ''):lower():match('color$') then __proto.color = true end
 
 -- function to get self meta data
 local function meta(self) return rawget(self, '.') end
+local function store(self) return meta(self)._ end
 local function init_meta(self) rawset(self, '.', { _={} }) end
 
 -- the writer
@@ -54,9 +57,10 @@ function __proto.get_level_name(self)
     return level_map[level][1]
 end
 
-local function rebuild_loggers(self, max_level)
+local function rebuild_loggers(self)
     local _self = meta(self)
-    max_level = max_level or _self.level
+    local max_level = _self.level
+
     local loggers = {}
     for i=0, #level_map do
         local c = level_map[i]
@@ -76,16 +80,17 @@ function __proto.reconfigure(self) rebuild_loggers(self) end
 local index_hook    = metatable.index_hook
 local newindex_hook = metatable.newindex_hook
 -- logger metatable
-local __mt = { __class    = 'utils.logger' }
-
-function __mt.__call(self, leading, ...)
-    return self:info(leading, ...)
-end
+local __mt = {
+    __class = 'utils.logger';
+    __call  = function(self, leading, ...)
+        return self:info(leading, ...)
+    end
+}
 
 local getters, setters
 __mt.__index, getters = index_hook.create {
     ['*'] = index_hook.computed(function(self, key)
-        return meta(self)._[key] or __proto[key]
+        return store(self)[key] or __proto[key]
     end);
 }
 __mt.__newindex, setters = newindex_hook.create()
@@ -100,24 +105,26 @@ end
 -- Hook property 'level'
 -- When level is changed, re-generate logging methods
 getters.level = function(self, key)
-    return meta(self)._[key] or __proto[key] or #level_map
+    return store(self)[key] or __proto[key] or #level_map
 end
 setters.level = function (self, key, newval)
-    local _self = meta(self)
-    if rawequal(newval, _self[key] or __proto[key]) then return end
-    _self._[key] = newval or __proto[key]
+    local _self, _store = meta(self), store(self)
 
-    local level = newval
-    if type(level) ~= 'number' then level = (level_idx[level] or #level_map) end
+    if rawequal(newval, _store[key] or __proto[key]) then return end
+    local v = newval or __proto[key]
+    _store[key] = v
+
+    local level = v
+    if type(level) ~= 'number' then level = (level_idx[tostring(level)] or #level_map) end
     if level < 0 then level = 0 elseif level > #level_map then level = #level_map end
     _self.level = level
 end
 
 setters.level_align = function(self, key, newval)
-    local _self = meta(self)
-    if rawequal(newval, _self._[key] or __proto[key]) then return end
+    local _self, _store = meta(self), store(self)
+    if rawequal(newval, _store[key] or __proto[key]) then return end
     local v = (newval or 'l'):lower():sub(1, 1):match('[lr]') or 'l'
-    _self._[key] = v
+    _store[key] = v
 
     if v == 'l'
     then _self.level_formatter = function(s) return string.format('[%-6s]', s) end
@@ -126,18 +133,18 @@ setters.level_align = function(self, key, newval)
 end
 
 setters.date_format = function(self, key, newval)
-    local _self=meta(self)
-    if rawequal(newval, _self._[key] or __proto[key]) then return end
+    local _self, _store = meta(self), store(self)
+    if rawequal(newval, _store[key] or __proto[key]) then return end
     local v = newval or __proto[key]
-    _self._[key] = v
+    _store[key] = v
     _self.date_formatter = function() return os.date(v) end
 end
 
 setters.use_color = function(self, key, newval)
-    local _self=meta(self)
-    if rawequal(newval, _self._[key] or __proto[key]) then return end
+    local _store = store(self)
+    if rawequal(newval, _store[key] or __proto[key]) then return end
     if newval and self.color == false then return end
-    _self._[key] = newval
+    _store[key] = newval
 end
 
 --[[ Constructor ]]--
@@ -150,15 +157,18 @@ end
 local init_props = { 'use_color', 'level', 'date_format', 'level_align' }
 function simple_log.create(options)
     if type(options) ~= 'table' then options = {} end
-    local data = setmetatable(options or {}, __mt)
+    local data = setmetatable({}, __mt)
     init_meta(data)
+
+    for key, value in pairs(options) do data[key] = value end
+
     if not data.stream.write then error("log output target `stream` must be a stream") end
     for _, key in ipairs(init_props) do setters[key](data, key) end
     data:reconfigure()
     return data
 end
 function simple_log.set_defaults(self, options)
-    __proto_data = options or {}
+    __defaults[1] = options or {}
     return self
 end
 table.readonly(__mt)
