@@ -1,7 +1,8 @@
 ## Build dev environment
 FROM debian:bookworm-slim AS lua52_build_base
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN DEBIAN_FRONTEND=no-interactive apt update \
+RUN apt update \
     && apt install lua5.2 liblua5.2-dev luarocks \
            libssl-dev git build-essential m4 \
            ca-certificates \
@@ -17,7 +18,9 @@ RUN make all
 
 FROM debian:bookworm-slim
 
-RUN DEBIAN_FRONTEND=no-interactive apt update \
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt update \
     && apt install libc6 lua5.2 ca-certificates \
            --no-install-recommends -y \
     && rm -rf /var/lib/apt/lists/*
