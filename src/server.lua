@@ -13,7 +13,7 @@ local ServerCtx_locked = false
 _ENV__mt.__newindex = function(_, key, value)
     if ServerCtx_locked then
         return log:warn(
-                "Rejected global %s value '%s'. Server Global is unwritable if debug=false.",
+                "Rejected global %s value '%s': server global is unwritable if debug=false.",
                 type(value), key
         )
     end
