@@ -1,7 +1,12 @@
 --[[ Entry of the http server ]]--
-local ServerCtx = {}
-local _ENV__mt = { __index=ServerCtx }
+local ServerENV, ServerENV_locked = {}, false
+local _ENV__mt = { __index=ServerENV }
+local rawset, rawget = rawset, rawget
 setmetatable(_ENV, _ENV__mt)
+for key, value in pairs(_ENV) do
+    rawset(ServerENV, key, value)
+    rawset(_ENV, key, null)
+end
 
 --[[ Init essentials ]]--
 local config = require'config'(arg)
@@ -9,17 +14,16 @@ local log = (require'log':set_defaults {
     use_color = config.log_color;
     level     = config.log_level or 'INFO'
 }).create()
-local ServerCtx_locked = false
 _ENV__mt.__newindex = function(_, key, value)
-    if ServerCtx_locked then
-        return log:warn(
-                "Rejected global %s value '%s': server global is unwritable if debug=false.",
-                type(value), key
-        )
+    if not ServerENV_locked then
+        rawset(ServerENV, key, value)
+        log:debug("Registered global %s '%s'",type(value),key)
+        return
     end
-
-    rawset(ServerCtx, key, value)
-    log:debug("Registered global %s '%s'",type(value),key)
+    log:warn(
+        "Rejected global %s value '%s': server global is unwritable if debug=false.",
+        type(value), key
+    )
 end
 CONFIG = config
 log:info('Web root: %s', CONFIG.root_path)
@@ -160,7 +164,7 @@ log:info("Now listening on port %d", bound_port)
 
 -- Start the main server loop
 if not CONFIG.debug then
-    ServerCtx_locked = true
+    ServerENV_locked = true
     local rs, e = pcall(function() return Server:loop(); end)
     if not rs then log:info("Server exited: %s", e); end
 else

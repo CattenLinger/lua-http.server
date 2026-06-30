@@ -23,7 +23,8 @@ local DefaultEmptyDispatcher = function(_, _, request, response)
             :finish(table.concat(header_lines, '\n'))
 end
 
-local DefaultOnErrorHandler = function(err, _, _, request, response)
+local DefaultOnErrorHandler = function(err, _, _, _, response)
+    if response.is_finished() then return end;
     response:status(500)
             :content_type('text/plain;charset=utf-8')
             :finish(err)

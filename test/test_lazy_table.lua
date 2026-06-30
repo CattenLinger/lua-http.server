@@ -1,4 +1,4 @@
-local table = require'./lib/utils'.table
+local table = require'src/utils'.table
 
 local function printtable(tb)
     for k, v in pairs(tb) do
@@ -6,12 +6,18 @@ local function printtable(tb)
     end
 end
 
-local tb = table.lazy {
-    time = os.time();
+local getters = {
     ['method'] = function(self)
         printtable(self)
-        return tostring(self.time)
+        return tostring(os.time())
     end;
 }
-print(tb.method)
+local __mt = {__index=getters}
+local getters2 = setmetatable({ time = os.time(); }, __mt)
+
+local tb = table.lazy(getters2)
+
+print('method:', tb.method)
+print('time  :', tb.time)
+
 table.print(getmetatable(tb).getters)
