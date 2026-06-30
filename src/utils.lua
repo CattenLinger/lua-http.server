@@ -135,7 +135,7 @@ end
 end
 
 --[[ Text utility functions ]] do
-    local extext = {}
+    local extext = setmetatable({}, {__index=string})
     utils.text = extext
     --[[
         Repeat a text sequence in num times.
@@ -144,7 +144,7 @@ end
         @param num repeat count
         @param c optional text, default is ' '
         @return a string
-    ]]
+    --]]
     function extext.nchar(num, c)
         c = c or ' '
         local str = ''
@@ -152,6 +152,17 @@ end
         return str
     end
 
+    --[[
+        Remove leading and tailing space of a string
+    ]]
+    function extext.trim(str)
+        local res = str
+        local idxs, idxe = string.find(res, '^[%s]+')
+        if idxs then res = string.sub(res, idxe + 1) end
+        idxs, idxe = string.find(res, '[%s]+$')
+        if idxs then res = string.sub(res, 1, idxs - 1) end
+        return res
+    end
 end
 
 --- Search a jump table uses string as key with non
@@ -204,14 +215,14 @@ end
 
     --[[ Lazy table ]]--
     local function lazytable_get(mt, t, k)
-        local get = mt.getters[k]
-        if 'function' == type(get) then return get(t, k) end
-        return get;
+        local getter = mt.getters[k]
+        if 'function' == type(getter)
+        then return getter(t, k);
+        else return getter;
+        end
     end
     local function lazytable_cached(mt, t, k)
-        local v = rawget(t, k)
-        if v ~= nil then return v end
-        v = lazytable_get(mt, t, k)
+        local v = lazytable_get(mt, t, k)
         rawset(t, k, v)
         return v
     end

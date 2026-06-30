@@ -44,7 +44,7 @@ function getters.query(self)
     local queries = {}
     if query_string == '' then return queries end
     for k, v in http_util.query_args(query_string) do
-        table.insert(queries, { k, v})
+        table.insert(queries, {k, http_util.decodeURIComponent(v)})
     end
     return queries
 end

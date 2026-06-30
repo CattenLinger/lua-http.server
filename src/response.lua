@@ -1,18 +1,18 @@
 --[[ Server response wrapper ]]
 local extable        = require'utils'.table
-local http_util      = require "http.util"
-local new_headers    = require "http.headers".new
-local http_version   = require "http.version"
+local http_util      = require'http.util'
+local new_headers    = require'http.headers'.new
+local http_version   = require'http.version'
 local default_server = string.format("%s/%s", http_version.name, http_version.version)
-
-local function assert_context_not_finished(self)
-    if (self['.finish'] or {})[1]
-    then error('try to act on a finished context')
-    end
-end
 
 local function get_is_finished(self)
     return (self['.finish'] or {})[1] or false
+end
+
+local function assert_context_not_finished(self)
+    if get_is_finished(self)
+    then error('try to act on a finished context', 3)
+    end
 end
 
 local function create_new_header(self)
@@ -103,8 +103,8 @@ end
 local getters = {
     -- Properties
     headers      = create_new_header;
-    is_finished  = get_is_finished;
     -- Methods
+    is_finished  = function() return get_is_finished  end;
     content_type = function() return set_content_type end;
     status       = function() return set_status end;
     header       = function() return add_header end;

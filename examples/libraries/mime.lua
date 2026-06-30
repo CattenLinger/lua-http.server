@@ -1,5 +1,3 @@
-local search_jump_table = require'utils'.search_jump_table
-
 --[[
     Simple mime db. It reads records from file (usually nginx's mime.type).
 
@@ -7,13 +5,39 @@ local search_jump_table = require'utils'.search_jump_table
     it comes a meta table to provide some utility
 --]]
 
---[[ MIME Entity ]]--
+--[[
+MIME Entity
+--]]
+---@class MIMEEntity
+
+---@type fun(id: number, name: string, exts: string[]): MIMEEntity
 local Entity do
+    ---@type MIMEEntity
     local __proto = {}
+
+    ---Get id of this entity
+    ---@param self MIMEEntity
+    ---@return number
     function __proto.get_id(self)       return self[1] end
+
+    ---Get name of this MIME type
+    ---@param self MIMEEntity
+    ---@return string
     function __proto.get_name(self)     return self[2] end
+
+    ---Get extension list of this MIME entity
+    ---@param self MIMEEntity
+    ---@return string[]
     function __proto.get_exts(self)     return self[3] end
+
+    ---@param self MIMEEntity
+    ---Get catalog (name before slash)
+    ---@return string
     function __proto.get_catalog(self)  return self[4] end
+
+    ---@param self MIMEEntity
+    ---Get subtype (name after slash)
+    ---@return string
     function __proto.get_subtype(self)  return self[5] end
 
     local __mt = {
@@ -24,6 +48,7 @@ local Entity do
             tostring(self)..'; '..param_string
         end;
     }
+
     local M = {}
     function M.create(id, name, exts)
         local catalog = string.match(name, '[^/]+') or ''
@@ -36,8 +61,18 @@ local Entity do
     })
 end
 
--- [[ MIME Database Object ]]--
+--[[
+MIME Database Object
+--]]
+---@class MIMEDatabase
+
+---@class MIMEDatabaseBuilder
+
+---@alias MIMEDatabaseFactory MIMEDatabaseBuilder | fun(fd: file) : MIMEDatabase
+
+---@type MIMEDatabaseFactory
 local Db do
+    ---@type MIMEDatabase
     local __proto = {}
 
     -- register to extension name index
@@ -61,7 +96,11 @@ local Db do
         return entity
     end
 
-    -- register a mime type with extensio name to db, if not exists
+    ---Register a mime type with extension name to db, if not exists
+    ---@param self MIMEDatabase
+    ---@param name string @mime name
+    ---@param exts string[] @extension names
+    ---@return void
     function __proto.register(self, name, exts)
         -- get index
         local idx = self._idx_type[name]
@@ -78,30 +117,42 @@ local Db do
         if #exts > 0 then ext_reg(self, idx, exts) end
     end
 
-    -- resolve content type of a filename
-    -- return first content type name, and list of index
-    -- that might match
+    ---Resolve content type of a filename.
+    ---
+    ---Return first content type name, and a list of
+    ---entity id that might match.
+    ---@param self MIMEDatabase
+    ---@param filename string @filename, basename is recommended
+    ---@return string | nil @first match, or nil if not found
+    ---@return number[]| nil @mime entity ids, or nil if not found
     function __proto.content_type_of(self, filename)
         local ext = filename:match('%.[^%.]*$') or ''
         if not ext then return nil end
         ext = string.sub(ext, 2)
 
         local idxs = self._idx_ext[ext]
-        if not idxs then return nil end
+        if not idxs then return nil, nil end
         return self._rows[idxs[1]], idxs
     end
 
-    -- Get one by internal id ref
+    ---Get entity by internal id ref
+    ---@param self MIMEDatabase
+    ---@param id number @entit id
+    ---@return MIMEEntity
     function __proto.get_by_id(self, id)
         return self._rows[id]
     end
 
-    -- Get entity by full name
+    ---Get entity by full name
+    ---@param self MIMEDatabase
+    ---@param name string @full mime type name
+    ---@return MIMEEntity @record entity
     function __proto.entity_by_name(self, name)
         local idx = self._idx_type[name]
         if not idx then return nil end
         return self._rows[idx]
     end
+
     local function create_db()
         return setmetatable(
                 { _idx=1, _idx_ext = {}, _idx_type={}, _rows={} },
@@ -110,11 +161,12 @@ local Db do
     end
 
     --[[ MIME Module ]]--
-
+    ---@type MIMEDatabaseBuilder
     local M = {}
-    --[[
-    Load MIME database from file handle
-    --]]
+
+    ---Create MIME database from file handle
+    ---@param file file @file descriptor
+    ---@return MIMEDatabase @database
     function M.load_file(file)
         local mime_db = create_db()
         for line in file:lines() do
