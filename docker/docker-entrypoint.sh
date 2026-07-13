@@ -11,7 +11,7 @@ if [ -d /docker-entrypoint.d ]; then
 
   for script in $(find /docker-entrypoint.d -name "*.sh" | sort) ; do
     printf "==== Apply script: %s\n" "$script"
-    exec "$script"
+    sh "$script"
   done
 fi
 
