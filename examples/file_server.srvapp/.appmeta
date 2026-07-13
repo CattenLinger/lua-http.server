@@ -1,0 +1,7 @@
+
+desc = 'A file web app';
+opts = {
+    { '-d', '--root'; size = { 1 }, set_prop = { 'webroot' };
+        desc = 'Webroot directory',
+    };
+};

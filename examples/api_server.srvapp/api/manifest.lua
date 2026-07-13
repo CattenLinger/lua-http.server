@@ -1,7 +1,8 @@
 local lfs = require'lfs'
 local promise = require'cqueues.promise'
 
-local cache_path = CONFIG.root_path..'/manifest.cache'
+local cache_path = './temp/manifest.cache'
+if not lfs.attributes('./temp', 'mode') then assert(lfs.mkdir('./temp')) end
 local function cache_file_exists()
     return 'file' == lfs.attributes(cache_path, 'mode')
 end
@@ -90,7 +91,7 @@ local function response_remote_date(_, response, uri)
         error(err_msg)
     end
 
-    local debounce = require'debouncer'()
+    local debounce = require'lib.debouncer'()
     local report   = new_dl_report()
 
     local function save_and_response(writer)

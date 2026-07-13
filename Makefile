@@ -9,8 +9,10 @@ BUILD_LIBDIR := $(BUILD_PREFIX)/lib
 BUILD_BINDIR := $(BUILD_PREFIX)/bin
 
 SRCS := $(shell find $(SRC_DIR) -name '*.lua')
+SRCS_SUBDIRS := $(shell find $(SRC_DIR) -type d) # use `-type d` here for busybox compability
 OBJS := $(patsubst $(SRC_DIR)/%,$(BUILD_LIBDIR)/%,$(SRCS))
-DIRS := $(BUILD_PREFIX) $(BUILD_LIBDIR) $(BUILD_BINDIR)
+OBJS_SUBDIRS := $(patsubst $(SRC_DIR)/%,$(BUILD_LIBDIR)/%,$(SRCS_SUBDIRS))
+DIRS := $(BUILD_PREFIX) $(BUILD_LIBDIR) $(BUILD_BINDIR) ${OBJS_SUBDIRS}
 
 ## Targets
 
@@ -21,6 +23,8 @@ info:
 	@echo 'Source files      :' $(SRCS)
 	@echo 'Target outputs    :' $(OBJS)
 	@echo '================================'
+	@echo 'make build: build all materials'
+	@echo 'make clean: clean up build folder'
 
 all: build app.tar.gz runtime.tar.gz
 

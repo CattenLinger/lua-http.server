@@ -2,7 +2,7 @@ local log = require"log"()
 local ce  = require "cqueues.errno"
 
 local mime = (function()
-	local fd, err = io.open(CONFIG:resolve_handler('mime.type.txt'))
+	local fd, err = io.open(Application.apphome:resolve('mime.type.txt'))
 	if not fd then critical('Failed to load MIME: '..err) end
 	local r = require'lib.mime'(fd)
 	return r
@@ -12,7 +12,7 @@ local render_error = pages'error.ltpl'
 local function on_notfound(request, response)
 	response:finish(render_error {
 		title = 'Not found';
-		page_title = 'Not Found: ' .. request.path;
+		page_title = 'Not Found: ' .. request.file_info.path;
 		description = 'The content you request is not exists.'
 	})
 end
@@ -34,12 +34,13 @@ local function on_error(_, response)
 end
 
 return function (request, response)
-	local real_path, method = request.real_path, request.method
+	local file_path, method = request.file_info.path, request.method
 	if method ~= 'GET' and method ~= 'HEAD' then
 		return response:status(405):finish()
 	end
+	local path = request.path_decoded
 
-	local fd, err, errno = io.open(real_path, "rb")
+	local fd, err, errno = io.open(file_path, "rb")
 	local code
 	if not fd then
 		local next
@@ -53,17 +54,17 @@ return function (request, response)
 			code = "503"
 			next = on_error
 		end
-		log:info("[Handler: file] Access to %s failed: %s", real_path, err)
+		log:info("[Handler: file] Access to %s failed: %s", file_path, err)
 		response:status(code):content_type("text/html?charset=utf8")
 		if method == "HEAD" then return end
-		return next()
+		return next(request, response)
 	end
 
 	response:status("200")
 	
-    local mime_type = mime:content_type_of(request.path:lower())
-
-	log:info("Got file %s , type: %s", real_path, mime_type)
+    local mime_type = mime:content_type_of(path:lower()) or 'text/plain'
+	if string.find(mime_type, '^text/') then mime_type = mime_type .. '?charset=utf8' end
+	log:info("Got file %s , type: %s", file_path, mime_type)
 	response:content_type(mime_type)
 	if method ~= "HEAD" then response:finish(fd) end
 end

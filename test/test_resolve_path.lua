@@ -1,4 +1,4 @@
-local exos = require'./lib/utils'.os
+local exos = require'src.utils'.os
 
 local testcases = {
     '.', './', '../', '/', '..', './..', '../.', './.', '//', '././.', '/./././.', '/////////';
@@ -21,6 +21,7 @@ for k, v in ipairs(testcases) do
 end
 
 print(':::::::: Path resolve')
+local path = exos.path'/'
 for k, v in ipairs(testcases) do
-    print(v, '->', exos.resolve(v))
+    print(v, '->', tostring(exos.resolve(v)) .. ', ' .. path:resolve(v))
 end

@@ -1,5 +1,5 @@
 --[[ Server response wrapper ]]
-local extable        = require'utils'.table
+local table          = require'utils'.table
 local http_util      = require'http.util'
 local new_headers    = require'http.headers'.new
 local http_version   = require'http.version'
@@ -113,7 +113,7 @@ local getters = {
 local __mt = { __index=getters }
 
 return function (server, stream)
-    return extable.lazy(setmetatable({
+    return table.lazy(setmetatable({
         stream       = stream;
     }, __mt ))
 end

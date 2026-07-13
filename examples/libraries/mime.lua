@@ -19,17 +19,17 @@ local Entity do
     ---@param self MIMEEntity
     ---@return number
     function __proto.get_id(self)       return self[1] end
-
+    
     ---Get name of this MIME type
     ---@param self MIMEEntity
     ---@return string
     function __proto.get_name(self)     return self[2] end
-
+    
     ---Get extension list of this MIME entity
     ---@param self MIMEEntity
     ---@return string[]
     function __proto.get_exts(self)     return self[3] end
-
+    
     ---@param self MIMEEntity
     ---Get catalog (name before slash)
     ---@return string
@@ -124,7 +124,7 @@ local Db do
     ---@param self MIMEDatabase
     ---@param filename string @filename, basename is recommended
     ---@return string | nil @first match, or nil if not found
-    ---@return number[]| nil @mime entity ids, or nil if not found
+    ---@return number[] | nil @mime entity ids, or nil if not found
     function __proto.content_type_of(self, filename)
         local ext = filename:match('%.[^%.]*$') or ''
         if not ext then return nil end
