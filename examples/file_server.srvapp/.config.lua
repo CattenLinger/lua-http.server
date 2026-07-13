@@ -1,13 +1,30 @@
+-- New feature: an app configurator will be pass to arguments
+local app_path, app_cfg, app_meta = ...
 
 local lfs = require'lfs'
-
 local log = require'log'()
-local Cache = require'lib.cache'.install_cleaner()
+local os  = require'utils'.os
 
-local resolve_controller = (function()
-    local path = CONFIG:resolve_handler('controllers')..'/'
-    return function(name) return path..name..'.lua' end
-end)()
+local Cache = require'lib.cache'.install_cleaner()
+Application = {
+    webroot = os.path(app_cfg.webroot or critical('webroot is required. Please specify the `--webroot` or `-d` option.'));
+    apphome = os.path(app_path);
+
+    configuration = app_cfg;
+}
+Logger:info('[File App] Serving at directory "%s"', Application.webroot)
+
+local resolver = os.path(app_path)
+resolve = setmetatable({
+    webroot = Application.webroot;
+    apphome = Application.apphome;
+}, {
+    __index = function(self, key)
+        rawset(self, key, resolver(key))
+        return rawget(self, key)
+    end;
+    __call = function(self, ...) return os.resolve(...) end
+})
 
 -- Handler caches
 local cache = Cache.new { cache_ttl=1 }
@@ -15,7 +32,7 @@ Cache.cleaner.register { 'handlers', function() return cache end }
 
 -- Template caches
 local templates = require'lib.pages' {
-    path=CONFIG:resolve_handler('pages')
+    path = tostring(resolve.pages())
 }
 Cache.cleaner.register { 'templates', function() return templates.cache end }
 
@@ -49,9 +66,9 @@ end
 --- Load handler code by name
 ---
 --- @param name string handler name
---- @return table { handler, _ENV, factory }
+--- @return table
 local function load_handler(name)
-    local path = resolve_controller(name)
+    local path = resolve.controllers:resolve(name) .. '.lua'
     local env = setmetatable({}, { __index=_ENV })
     local factory, err = loadfile(path, 't', env) -- load codes
     if not factory and err then return nil, err end;
@@ -66,14 +83,21 @@ end
 -- detect file type using lfs and set `file_type`
 -- in request context
 local function detect_file_type(request)
-    local real_path = request.real_path
-    if not real_path then return end
-    request.file_type = lfs.attributes(request.real_path, "mode")
+    local path = request.path_decoded
+    if not path then return end
+    
+    local file_info = request.file_info
+    path = resolve.webroot:resolve(path)
+    file_info.path = path
+    file_info.type = lfs.attributes(path, "mode")
 end
 
 local function on_reply(_, _, request, response)
+    local file_info = {}; request.file_info = file_info;
+
     detect_file_type(request)
-    local name = request.file_type or ''
+
+    local name = file_info.type or ''
     if name == '' then name = 'not_found'; end
 
     -- Dynamically load handler codes

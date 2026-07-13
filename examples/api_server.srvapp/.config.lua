@@ -1,3 +1,4 @@
+local app_path = ...
 local log = require'log'()
 local lfs = require'lfs'
 local Cache = require'lib.cache'.install_cleaner()
@@ -6,9 +7,9 @@ local cache = Cache.new { }
 Cache.cleaner.register { 'handlers', function() return cache end }
 
 local resolve_action = (function()
-    local api_path = CONFIG:resolve_handler('api')
+    local resolver = require'utils'.os.path(app_path)('api')
     return function(path)
-        return api_path..'/'..path..'.lua'
+        return resolver:resolve(path)..'.lua'
     end
 end)()
 

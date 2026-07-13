@@ -1,5 +1,5 @@
-local table = require'utils'.table
-local metatable = require'utils'.metatable
+local table     = require'utils'.table
+local metatable = require'utils'.meta
 
 -- default values of each logger
 local __defaults = {

@@ -46,26 +46,39 @@ server.lua 解决的是入站与出站，而其上就是应用逻辑，属于动
 - EventQueue：服务器的 cqueue EventLoop 引用，所有协程操作都需要挂在这里
 - NotifyNextGC：通知下一次 GC
 - Server：服务器对象
-- CONFIG：服务器配置
 
 程式套件与加载
 ---
 
 服务器在没有对应的套件时，只是一个会返回请求头的服务器。
-如果需要丰富的功能，则必须通过参数 `--handler-path` 额外指定套件路径。
+如果需要丰富的功能，则必须通过参数 `--suit` 额外指定套件路径。
 
-套件是一个包含 `.config.lua` 的文件夹。在使用套件时，套件的路径会被加入到 lua path 中。
+套件是一个包含 `.appmeta`、`.webapp.lua`，或者两者的文件夹。
+在使用套件时，套件的路径会被加入到 lua path 中。
 
-`.config.lua` 是对套件的描述文件，用于描述在请求到达时该作何种处理。
-套件描述文件的 _ENV 是一个独立的表，继承自服务器的上下文。
-如果套件使用了动态代码加载，要注意隔离不同的 _ENV。
+`.appmeta` 是对套件的描述元数据文件，本质是一个 lua 脚本。
+用于描述应用的一些基础信息。当 `.webapp.lua` 存在时，此文件可选。
 
-套件的生命周期跟随整个服务器，所以套件设置在启动时便不会更新。
-如果 `.config.lua` 更新了，需要重启服务器才能生效。
+`.webapp.lua` 是套件的配置文件，也是整个应用的代码入口，用于描述在请求到达时该作何种处理。
+套件配置文件的 _ENV 是一个独立的表，继承自服务器的上下文。
+如果套件使用了动态代码加载，要注意隔离不同的 _ENV。在套件配置被调用时，服务器的 _ENV 会被保护。
 
-### 重要接口
+套件的生命周期跟随整个服务器，所以套件设置在启动后便不会更新。
+如果 `.webapp.lua`/`.appmeta` 更新了，需要重启服务器才能生效。
+
+### 套件配置
+`.webapp.lua` 是应用逻辑的入口。它可以不是 `.webapp.lua`，但这样的话，需要在 `.appmeta` 中指定（见下[`.appmeta` 编写](#`.appmeta`+编写)）
 
 套件配置是 HTTP 请求的入口，它需要配置一个入站处理器，并可选一个错误处理器。
+
+加载时，加载器传入三个参数：
+```lua
+local app_path, app_cfg, app_meta = ...
+```
+1. app_path：string，应用路径，指向应用代码所在位置
+2. app_cfg：table，应用配置，当在 `.appmeta` 中定义了 `options` 后，处理好的配置项将放在这里。见：[通过 options 定义入参](#通过+options+定义入参)
+3. app_meta：table，元数据环境，`.appmeta` 的内容，如果没有此文件，则为空。
+
 当 HTTP 请求进入，服务器会调用配置所返回的代码来处理请求。它使用两个方法：
 
 1. `on_reply(server, stream, request, response)`
@@ -83,7 +96,7 @@ server.lua 解决的是入站与出站，而其上就是应用逻辑，属于动
 服务器会优先使用返回值。
 
 ```lua
--- .config.lua
+-- .webapp.lua
 
 -- 直接在配置中设置，服务器在处理配置时得不到一个处理器，则会使用这个函数处理
 function on_reply(_, _, request, response)
@@ -105,12 +118,68 @@ return function(_, _, _, response)
 end
 ```
 
+### `.appmeta` 编写
+
+理论上 `.appmeta` 可以是任意内容，但以下全局名称会被服务器使用。
+它们大小写不敏感，且有固定的格式：
+
+| 名称 | 说明 |
+|:---:|:---|
+| title, name | string，应用标题，可选 |
+| description, desc | string，应用描述，可选 |
+| options, opts | list，参数定义，可选。格式见下 |
+| entry | string，指定入口代码文件名，需在套件目录下。 |
+
+#### 通过 options 定义入参
+
+`.appmeta` 的 `options` 用以指示如何处理传入的命令行参数。
+需要其中定义的命令行选项不能与服务器已经有的选项重合。
+```lua
+options = {
+    -- 每个 options 是一个集合，其中的无 key 的值会被注册到参数列表中。
+    -- 必须以 `-` 开头。 这个例子里，选项后跟随的非 `-` 开头的值会全部加进 appcfg 中
+    -- 这里有两个名字，会被分别写到两个不同的字段里
+    { '--webroot', '-d'; };
+    
+    -- 定义一个最小值，在选项出现时会校验
+    { '--webroot', '-d'; size = { 1 }; };
+    
+    -- 定义一个最大值，size 代表一个 range
+    { '--webroot', '-d'; size = { 1, 1 }; };
+    
+    -- 更改写入的属性名，两个选项都会被写进同一个字段，相当于别名。
+    { '--webroot', '-d'; size = { 1, 1 }; set_prop={'webroot'} };
+    
+    -- 可以通过 set_prop 的第二个参数增加一个默认值。
+    { '--webroot', '-d'; size = { 0, 1 }; set_prop={'webroot', '.'} };
+
+    -- 增加一个描述，将会在 `--help` 出现时跟着选项一起输出
+    { '--webroot', '-d'; size = { 0, 1 }; set_prop={'webroot', '.'};
+      desc = 'Web root path.';
+    };
+
+    -- 描述可以是多行的
+    { '--webroot', '-d'; size = { 0, 1 }; set_prop={'webroot', '.'};
+      desc = { 'Web root path.';
+             'Location to serve as a web server'; }; 
+    };
+}
+```
+
+注意：
+- 重复定义会导致先前的选项被后来的选项覆盖。
+- 当选项只有一个时，值是字符串本身。当值有多个时，会转换为列表逐一加入。
+- 更复杂的校验逻辑，应由具体的应用内代码决定。
+- 建议应用逻辑对参数内容作规整化。
+
+appmeta 的整个 `_ENV` 本身会被加载器传入应用配置逻辑中。
+
 ### 示例套件
 
 可以在 `/examples` 下查看示例套件，例如
 
 ```bash
-./bin/http-server --handler-path ./examples/file_server.srvapp
+./bin/http-server --suit ./examples/file_server.srvapp
 ```
 
 可在当前路径下启动一个 http 文件服务器。 
@@ -121,36 +190,15 @@ end
 一些 API 说明
 ---
 
-### CONFIG 对象
-
-CONFIG 在启动的时候通过参数处理生成。它在整个上下文中，可以随时拿出来。
-
-### 字段
-
-|             名称 | 备注      |
-|---------------:|:--------|
-|           host | 服务器监听地址 |
-|           port | 数字，监听端口 |
-|       root_dir | 工作目录    |
-|    handler_dir | 套件目录    |
-|          debug | 调试模式开关  |
-
-### 方法
-
-|              名称 | 备注                                          |
-|----------------:|:--------------------------------------------|
-|    resolve_home | 得到相对 web 根目录的路径 (`CONFIG.root_path`)        |
-| resolve_handler | 得到相对于套件目录的路径 (`CONFIG.handler_dir`)         |
-
 ### Request 对象
 
 Request 对象是个 lazy table，除了 stream 是请求流本体外，其中这些字段有自动计算：
 
 - headers：http 头对象，参照 lua http 文档
 - method：请求方法
-- path：url 路径
-- real_path：相对 CONFIG.root 的路径（已 url-decoded）
 - uri：原始请求 URI
+- path：url 路径（未 url-decode）
+- path_decoded：已 url-decoded 的请求路径
 - query_string：uri 上的请求参数，如果没有则返回空字符串
 - query：uri 参数的键值对列表
 - content_type： 请求类型，若无则返回空
@@ -179,3 +227,9 @@ Response 对象用于对返回作出便捷操作。对 Response 的修改会被�
 如果 HTTP 请求方法为 `HEAD`，无论是否结束 response，在写完 http 头后，流都会被主动关闭
 ，body 的写入会被忽略。
 
+变动
+---
+
+v2 版删除了一些全局变量，并对全局本身作出了限制：
+- 服务器配置 `CONFIG` 不再出现在全局
+- 在调用应用的配置时，全局会被上锁

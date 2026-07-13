@@ -3,7 +3,7 @@ pages.path = 'pages/'
 local test_data = {
     path="/", 
     files={ 
-        {css_class="directory"; href="/"; filename="."; size=0; size="0B"; time="1970-01-01 00:00:00"}
+        {css_class="directory"; href="/"; filename="."; size="0B"; time="1970-01-01 00:00:00"}
     }
 }
 

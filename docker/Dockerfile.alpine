@@ -1,0 +1,48 @@
+## Build dev environment
+FROM alpine:3.24 AS lua52_build_base
+
+RUN apk add lua5.2 lua5.2-dev luarocks5.2 \
+            gcc musl-dev openssl-dev make m4 \
+            bsd-compat-headers \
+    && ln -sf $(which luarocks-5.2) /bin/luarocks
+
+RUN luarocks install http \
+    && luarocks install luafilesystem \
+    && luarocks install compat53
+
+WORKDIR /workspace
+COPY .  /workspace
+RUN make all LUAC=luac5.2
+
+FROM alpine:3.24
+
+RUN apk add lua5.2 openssl ca-certificates \
+    && ln -sf $(which lua5.2) /bin/lua
+
+COPY --from=lua52_build_base \
+    /workspace/docker/docker-entrypoint.sh \
+    /workspace/build.make/runtime.tar.gz   \
+    /workspace/build.make/app.tar.gz       \
+    /
+
+COPY --from=lua52_build_base \
+    /workspace/docker/docker-entrypoint.d  \
+    /docker-entrypoint.d
+
+RUN chmod +x /docker-entrypoint.sh && chmod -R +x /docker-entrypoint.d \
+    && tar -xzvf /runtime.tar.gz -C / \
+    && mkdir -p /opt/lhsvr && tar -xzvf /app.tar.gz -C /opt/lhsvr \
+    && chmod -R +x /opt/lhsvr/bin \
+    && ln -sf /opt/lhsvr/bin/http-server /usr/bin/http-server \
+    && rm -rf /runtime.tar.gz /app.tar.gz \
+    && adduser -h /www -s /sbin/nologin -G www-data -D webadm \
+    && chown -R webadm:www-data /srv
+
+WORKDIR /srv
+USER webadm
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+EXPOSE 80
+STOPSIGNAL SIGINT
+
+CMD ["http-server", "-h", "0.0.0.0", "-p", "80"]

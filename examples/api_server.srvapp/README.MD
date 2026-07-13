@@ -10,7 +10,7 @@ Demo URLs
 call http://localhost:8000/manifest will return luarocks 
 manifest from https://luarocks.org/manifest.
 
-Cache will be saved under webroot.
+Cache will be saved under ./temp.
 
 ### [POST] /auth
 call http://localhost:8000/auth with `username` and `password`
