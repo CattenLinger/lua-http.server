@@ -17,9 +17,9 @@ function extext.nchar(num, c)
     return str
 end
 
---[[
-    Remove leading and tailing space of a string
-]]
+--- Remove leading and tailing space of a string
+---@param str string
+---@return string
 function extext.trim(str)
     local res = str
     local idxs, idxe = string.find(res, '^[%s]+')
@@ -27,6 +27,24 @@ function extext.trim(str)
     idxs, idxe = string.find(res, '[%s]+$')
     if idxs then res = string.sub(res, 1, idxs - 1) end
     return res
+end
+
+--- Check if a string is blank
+--- `nil` is same as blank
+---@param str string | nil 
+---@return boolean
+function extext.isblank(str)
+    if not str then return true end
+    return not str:match('[^%s]+')
+end
+
+--- Check if a string is empty
+--- `nil` is same as empty
+---@param str string | nil
+---@return boolean
+function extext.isempty(str)
+    if not str then return true end
+    return string.len(str) == 0
 end
 
 return extext

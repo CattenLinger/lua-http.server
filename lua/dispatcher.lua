@@ -1,7 +1,8 @@
-local string = require'utils'.text
-local table  = require'utils'.table
-local os     = require'utils'.os
-local log    = Logger
+local string  = require'utils'.text
+local table   = require'utils'.table
+local os      = require'utils'.os
+local log     = Logger
+local package = require'package'
 
 local dbgmod_apploader = IsDebugMode'apploader'
 --[[ 
@@ -27,7 +28,7 @@ local DefaultEmptyDispatcher = function(_, _, request, response)
 end
 
 local DefaultOnErrorHandler = function(err, _, _, _, response)
-    if response.is_finished() then return end;
+    if response:is_finished() then return end;
     response:status(500)
             :content_type('text/plain;charset=utf-8')
             :finish(err)

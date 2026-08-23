@@ -31,9 +31,9 @@ COPY --from=lua52_build_base \
 
 RUN chmod +x /docker-entrypoint.sh && chmod -R +x /docker-entrypoint.d \
     && tar -xzvf /runtime.tar.gz -C / \
-    && mkdir -p /opt/lhsvr && tar -xzvf /app.tar.gz -C /opt/lhsvr \
-    && chmod -R +x /opt/lhsvr/bin \
-    && ln -sf /opt/lhsvr/bin/http-server /usr/bin/http-server \
+    && mkdir -p /opt/lhsrv && tar -xzvf /app.tar.gz -C /opt/lhsrv \
+    && chmod -R +x /opt/lhsrv/bin \
+    && ln -sf /opt/lhsrv/bin/http-server /usr/bin/http-server \
     && rm -rf /runtime.tar.gz /app.tar.gz \
     && adduser -h /www -s /sbin/nologin -G www-data -D webadm \
     && chown -R webadm:www-data /srv

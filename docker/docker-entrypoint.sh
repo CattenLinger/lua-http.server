@@ -6,7 +6,7 @@ printf "Work directory: %s\n" "$(pwd)"
 if [ -d /docker-entrypoint.d ]; then
   for script in $(find /docker-entrypoint.d -name "*.env" | sort) ; do
     printf "==== Apply environments: %s\n" "$script"
-    source "$script"
+    . "$script"
   done
 
   for script in $(find /docker-entrypoint.d -name "*.sh" | sort) ; do

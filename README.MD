@@ -19,7 +19,14 @@ LUA HTTP SERVER
 
 构建：
 ```bash
+## Debian
 docker build -t lua-http.server:latest -f docker/Dockerfile .
+
+## Alpine
+docker build -t lua-http.server:alpine-latest -f docker/Dockerfile.alpine .
+
+## Debian（二进制打包，但成品依旧需要 liblua）
+docker build -t lua-http.server:latest-bin -f docker/Dockerfile.binary.debian
 ```
 
 HTTP 服务器
@@ -233,3 +240,5 @@ Response 对象用于对返回作出便捷操作。对 Response 的修改会被�
 v2 版删除了一些全局变量，并对全局本身作出了限制：
 - 服务器配置 `CONFIG` 不再出现在全局
 - 在调用应用的配置时，全局会被上锁
+- lua 默认的 package 被替换成一个永远返回空列表的表
+- lua 默认的 require 被替换成服务器定制的 require

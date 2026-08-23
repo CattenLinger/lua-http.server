@@ -89,9 +89,9 @@ local __mt = {
 
 local getters, setters
 __mt.__index, getters = index_hook.create {
-    ['*'] = index_hook.computed(function(self, key)
+    ['*'] = function(self, key)
         return store(self)[key] or __proto[key]
-    end);
+    end;
 }
 __mt.__newindex, setters = newindex_hook.create()
 

@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+
+if [ -z "$HOME_DIR" ]; then
+    HOME_DIR=`realpath "$0"`
+    HOME_DIR=`dirname "$HOME_DIR"`/..
+    export HOME_DIR=`realpath "$HOME_DIR"`
+fi
+
+export BUILD_LIB_PATH="${HOME_DIR}/lib/?.lua;${HOME_DIR}/lib/?/init.lua"
+
+exec lua -e "package.path='$BUILD_LIB_PATH;'..package.path" "$@"

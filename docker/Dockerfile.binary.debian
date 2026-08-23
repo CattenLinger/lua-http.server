@@ -1,5 +1,5 @@
-## Build dev environment
 FROM debian:bookworm-slim AS lua52_build_base
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt update \
@@ -14,21 +14,24 @@ RUN luarocks install http \
 
 WORKDIR /workspace
 COPY .  /workspace
-RUN make all
+RUN make build.make/lhsrv.tar.gz \
+    LUA_INCDIR=/usr/include/lua5.2/ LUA_LIBDIR=/usr/lib/aarch64-linux-gnu/ \
+    LUAC=luac5.2 LUA_LIBNAME=lua5.2
+
+##
 
 FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt update \
-    && apt install libc6 lua5.2 ca-certificates \
+    && apt install liblua5.2-0 libc6 ca-certificates \
            --no-install-recommends -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=lua52_build_base \
     /workspace/docker/docker-entrypoint.sh \
-    /workspace/build.make/runtime.tar.gz   \
-    /workspace/build.make/app.tar.gz       \
+    /workspace/build.make/lhsrv.tar.gz   \
     /
 
 COPY --from=lua52_build_base \
@@ -36,12 +39,13 @@ COPY --from=lua52_build_base \
     /docker-entrypoint.d
 
 RUN chmod +x /docker-entrypoint.sh && chmod -R +x /docker-entrypoint.d \
-    && tar -xzvf /runtime.tar.gz -C / \
-    && mkdir -p /opt/lhsrv && tar -xzvf /app.tar.gz -C /opt/lhsrv \
-    && chmod -R +x /opt/lhsrv/bin \
-    && ln -sf /opt/lhsrv/bin/http-server /usr/bin/http-server \
-    && rm -rf /runtime.tar.gz /app.tar.gz \
+    && tar -xzvf /lhsrv.tar.gz -C /opt \
+    && chmod -R +x /opt/lhsrv \
+    && ln -sf /opt/lhsrv /usr/bin/lhsrv \
+    && rm -rf /lhsrv.tar.gz \
     && chown -R www-data:www-data /srv
+
+ENV LUA_HTTP_SERVER_HOME_DIR=/opt
 
 WORKDIR /srv
 USER www-data
@@ -50,4 +54,4 @@ ENTRYPOINT ["/docker-entrypoint.sh"]
 EXPOSE 80
 STOPSIGNAL SIGINT
 
-CMD ["http-server", "-h", "0.0.0.0", "-p", "80"]
+CMD ["lhsrv", "-h", "0.0.0.0", "-p", "80"]

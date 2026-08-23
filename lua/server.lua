@@ -1,6 +1,6 @@
 --[[ Init essentials ]]--
-local table  = require'utils'.table
-local config = require'config'(arg)
+local config  = require'config'(arg)
+local table   = require'utils'.table
 
 IsDebugMode = (function() --[[ Debug Mode Getter ]]
     local opts = config.debug
@@ -22,6 +22,9 @@ local log = (require'log':set_defaults {
 }).create()
 Logger = log;
 
+-- Replace lua's stock loader
+-- local loader = require'loader'.warp(require)
+-- require = function(name) return loader:load(name) end
 
 --[[ Entry of the http server ]]--
 local ServerENV, ServerENV_locked = {}, false
@@ -200,8 +203,8 @@ local server_onstream, server_onerror do
 end
 
 Server = assert(require'http.server'.listen {
-    host = config.host[1];
-    port = config.port[1];
+    host = config.host[1] or "localhost";
+    port = tonumber(config.port[1] or "8000");
     max_concurrent = 100;
     onstream = server_onstream;
     onerror = server_onerror;

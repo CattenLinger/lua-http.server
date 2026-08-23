@@ -191,11 +191,25 @@ local print_help do
         '';
     }, '\n')
 
+    local print_dbg_info = function()
+        local pkg = require'package'
+
+        write(
+            ':::::::: Debug Info ::::::::\n',
+            string.format('Lua Version : %s\n', _VERSION),
+            string.format('Lua Path    : %s\n', pkg.path),
+            string.format('Lua C Path  : %s\n', pkg.cpath),
+            string.format('Server Home : %s\n', pkg.homedir)
+        )
+    end
+
     print_help = function(config, spec_meta)
         write(banner)
         local spec_tbl = unpack(spec_meta)
         write('Options:\n')
         print_spec_tbl(spec_tbl)
+
+        if config.debug then print_dbg_info() end
 
         if not config.handler_dir then return end
         print_appmeta(config)
@@ -293,13 +307,8 @@ local function preprocess_appconfig(cfg)
     end;
 end
 
-local DefaultConfig = {
-    -- Persist bootstrap paths
-    lib_path  = package.path; lib_cpath = package.cpath;
-    host = {'localhost'}; port = {'8000'};
-}
 function M.from_args(args)
-    local cfg = table.overlay { DefaultConfig }
+    local cfg = {}
     local arg_spec, post_processor = table.unpack(arg_meta)
     local arg_list = arg_parse(args)
     local remain, escaped = arg_process(arg_list, cfg, arg_spec)
