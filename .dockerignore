@@ -1,6 +1,6 @@
 /test
 /docker/Dockerfile
-/build
+/docker/Dockerfile.*
 /build.make
 /.idea
 /.git

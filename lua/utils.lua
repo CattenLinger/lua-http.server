@@ -1,8 +1,6 @@
 local MODULE_NAME, FILE_PATH = ...
 local utils = setmetatable({}, {
-    __index=function(_, key)
-        return require(MODULE_NAME..'.'..key)
-    end;
+    __index = function(_, key) return require(MODULE_NAME..'.'..key) end;
 })
 
 --- Get the current time in seconds.

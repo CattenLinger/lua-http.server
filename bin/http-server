@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
 set -e
-HOME_DIR=$(realpath $(dirname $(realpath "$0"))"/..")
-lua -e "package.path='$HOME_DIR/src/?.lua;$HOME_DIR/src/?/init.lua;'..package.path" "$HOME_DIR/src/server.lua" $@
+export LUA_HTTP_SERVER_HOME_DIR=$(realpath $(dirname $(realpath "$0"))"/..")
+
+LUA_DIR="$LUA_HTTP_SERVER_HOME_DIR/lua"
+exec lua -e "package.homedir=[[$LUA_HTTP_SERVER_HOME_DIR]]" "$LUA_DIR/init.lua" $@
