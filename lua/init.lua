@@ -47,9 +47,9 @@ if is_embedded then
     setmetatable(package_.preload, { __index = preload_indexer })
 else
     -- init script package environment
-    package_.entry   = assert(loadfile(homedir..'/lua/server.lua', "bt"))
+    package_.entry = assert(loadfile(homedir..'/lua/server.lua', "bt"))
     -- loader should be loaded before anything
-    package_.loaded['loader']  = assert(loadfile(homedir..'/lua/loader.lua', 'bt')('loader'))
+    package_.loaded['loader'] = assert(loadfile(homedir..'/lua/loader.lua', 'bt')('loader'))
 end
 package_.homedir = homedir
 

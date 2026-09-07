@@ -2,7 +2,8 @@ LUA HTTP SERVER
 ===
 [English Version](doc/README_EN.MD)
 
-这是一个基于 lua http 示例中的 http server 修改而成的服务器
+这是一个基于 lua http 示例中的 http server 修改而成的服务器。
+比起一个成品，它更多是一个我复习 Lua 过程中的作业集合。
 
 依赖：
 
