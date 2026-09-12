@@ -30,6 +30,16 @@ function exmeta.is_callable(a)
     return 'function' == type(call)
 end
 
+---Check the type of a value
+---If t is nil, return if a is nil.
+---@param t string @target type
+---@param a any @a value
+---@return boolean @type name is same
+function exmeta.is_type(t, a)
+    if t == nil then return a == nil end
+    return t == type(a)
+end
+
 ---Same as lua's rawset but returns
 ---the value been set
 ---@param t table @target table
