@@ -67,6 +67,9 @@ build: $(DIRS) $(OBJS) $(BUILD_BINDIR)/http-server
 	cp -r ./doc $(BUILD_PREFIX)
 	cp README.MD $(BUILD_PREFIX)/doc/README_ZH.MD
 
+.PHONY: binary
+binary: $(BUILD_PREFIX)/lhsrv
+
 .PHONY: clean
 clean:
 	[ -d $(BUILD_PREIFX) ] && rm -rf $(BUILD_PREFIX)
