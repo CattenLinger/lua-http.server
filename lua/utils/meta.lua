@@ -20,6 +20,27 @@ function exmeta.new_void_table()
     return setmetatable({}, void_table_mt_)
 end
 
+---Check if a value is callable
+---@param a any
+---@return boolean 
+function exmeta.is_callable(a)
+    if not a then return false end
+    if type(a) == 'function' then return true end
+    local call = (getmetatable(a) or {}).__call
+    return 'function' == type(call)
+end
+
+---Same as lua's rawset but returns
+---the value been set
+---@param t table @target table
+---@param k any @key
+---@param v any @value to set
+---@return any @value
+function exmeta.rawset(t, k, v)
+    rawset(t, k, v)
+    return v
+end
+
 --[[
     Index Hooks
 --]]
