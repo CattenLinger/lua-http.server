@@ -124,11 +124,12 @@ local serverloader = (function()
         context = context;
     }
     
+    -- expose the Loader module
     loaded['loader']  = Loader
 
-    -- Special modules 
-    loaded['@luahttpserver.loader'] = obj
-    loaded['@luahttpserver.systemloader'] = systemloader;
+    -- expose some special modules 
+    loaded['@lhsrv.loader'] = obj
+    loaded['@lhsrv.systemloader'] = systemloader;
 
     return obj
 end)()

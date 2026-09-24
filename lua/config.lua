@@ -221,31 +221,57 @@ end
 --]]
 local arg_meta = {
     {
-        {   '--host', '-h'; size = { 1 }, set_prop = { 'host' };
+        {   
+            '--host', '-h';
             desc = { 'Address to listen to, default is "localhost"'; };
+            size = { 1 }, set_prop = { 'host' };
         };
-        {   '--port', '-p'; size = { 1, 1 }, set_prop = { 'port' };
+        {   
+            '--port', '-p';
             desc = 'Port to listen to, default is "8000"';
+            size = { 1, 1 }, set_prop = { 'port' };
         };
-        {   '--suit', '-s', '--handler-path'; size = { 1, 1 }, set_prop = { 'handler_dir' };
+        {   
+            '--suit', '-s', '--handler-path';
             desc = { 'Handler folder path';
                      'Server will read the `.webapp.lua`(or `.config.lua` for compatibility) ';
                      'under this path for request processor and error handler, see README.MD'; };
+            size = { 1, 1 }, set_prop = { 'handler_dir' };
         };
-        {   '--debug' ; size = { 0 }, set_prop = { 'debug', {} };
+        {   
+            '--debug';
             desc = { 'Enable debug feature flags. Can use multiple flags together.';
                      'Flags: all, request, apploader, api'; };
+            size = { 0 }, set_prop = { 'debug', {} };
         };
-        {   '--log-level', '-v'; size = { 1 }, set_prop = { 'log_level', 'TRACE' };
+        {   
+            '--log-level', '-v';
             desc = { 'Set log level, 0 to 5 or ERROR,WARN,INFO,DEBUG,TRACE';
                      '0 means disable.' };
+            size = { 1 }, set_prop = { 'log_level', 'TRACE' };
         };
-        {   '--log-color', '-C'; size = { 0 }, set_prop = { 'log_color', true };
+        {   
+            '--log-color', '-C';
             desc = { 'Use colored log';
                      'If the TERM is not colored, this options will be ignored.'};
+            size = { 0 }, set_prop = { 'log_color', true };
         };
-        {   '--help'; size = { 0 }, set_prop = { 'help', true };
-            desc = 'Show help and exit';
+        {
+            '--http2';
+            desc = { 'Enable http2. values: force, auto (default)', 
+                     'Please note that h2 implements in lua-http v0.4 has some flaws.',
+                     'It will hang the server forever under certian situations.' };
+            size={0, 1}, set_prop={'use_http2', 'auto'};
+        };
+        {
+            '--max-concurrent';
+            desc = { 'Set max concurrent connections, default is 100'};
+            size={1}, set_prop={'max_concurrent', 100};
+        };
+        {   
+            '--help';
+            desc = 'Show help and exit.';
+            size = { 0 }, set_prop={ 'help', true };
         };
     };
     function (config)

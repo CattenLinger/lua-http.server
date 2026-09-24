@@ -1,19 +1,73 @@
 --[[
-    Module Loader
-    ===
+Module Loader
+===
 
-    This module is aim to be self-contained under standard lua environment.
-    
-    After a loader was create and configured, host script usually keeps this object 
-    to controls module loading behavior, leaving just the 'require' method to guest script environment.
+This module is aim to be self-contained under standard lua environment.
 
-    Fields of the loader can be use separately since they are all just exposed references from the internal
-    closure.
+After a loader was create and configured, host script usually keeps this object 
+to controls module loading behavior, leaving just the 'require' method to guest 
+script environment.
 
-    Usages
-    ---
+Fields of the loader can be use separately since they are all just exposed
+references from the internal closure.
 
-    
+```lua
+local loader = require'loader' {
+    loaded  = {};  -- optional, replace the default module cache
+    loaders = { -- list of custom loaders
+        function(modname)
+            local mod, err = do_loading(modname)
+            if success return mod else return nil, err end
+        end
+    };
+}
+```
+
+The `load` method is an error safe version of `require`.
+returns nil and an loading history if any error happends.
+```lua
+--- This will throw an error if module not found
+local module = loader.require('module.name')
+--- This won't
+local module, err = loader.load('module.name')
+```
+
+You can combine loaders together
+```lua
+local system_loader = require'loader' { ... }
+local special_loader = require'loader' { ... }
+
+local guest_loader = require'loader' {
+    -- remember, they are searched in reverse order
+    loaders = { system_loader; special_loader; }
+}
+
+```
+
+Usage
+---
+
+### Wrap up the lua standard `require`
+```lua
+local require_ = require
+local package_ = package
+local systemloader = Loader {
+    loaded  = package_.loaded;
+    loaders = {
+        -- write custom loading logic to controll how modules are loaded
+        function(modname)
+            local ok, mod, file = pcall(require_, modname)
+            if ok == false then return nil, mod end;
+            return mod
+        end;
+    };
+}
+-- replace the standard `require`
+require = systemloader.require
+
+-- use it as usuall
+local json = require'json'
+```
 --]]
 local require, package = require, package;
 local rawset = function(t, k, v) rawset(t, k, v); return v end;

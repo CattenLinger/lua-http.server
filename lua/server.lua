@@ -2,7 +2,8 @@
 local config  = require'config'(arg)
 local table   = require'utils'.table
 
-IsDebugMode = (function() --[[ Debug Mode Getter ]]
+--[[ Debug Mode Info ]]
+IsDebugMode = (function()
     local opts = config.debug
     if not opts then return function() return false end end
 
@@ -15,16 +16,18 @@ IsDebugMode = (function() --[[ Debug Mode Getter ]]
     end
 end)()
 local is_debug_mode_ = IsDebugMode()
+-- expose debug indicator as module
+require'@lhsrv.loader'.loaded.isdebugmode = IsDebugMode
 
 local log = (require'log':set_defaults {
     use_color = config.log_color;
     level     = config.log_level or 'INFO'
 }).create()
-Logger = log;
 
--- Replace lua's stock loader
--- local loader = require'loader'.warp(require)
--- require = function(name) return loader:load(name) end
+-- replace logger module, return just the server logger instance
+require'@lhsrv.loader'.loaded.log = function() return log end
+
+Logger = log;
 
 --[[ Entry of the http server ]]--
 local ServerENV, ServerENV_locked = {}, false
@@ -202,13 +205,22 @@ local server_onstream, server_onerror do
     end
 end
 
+local http_version = (function()
+    local value = (config.use_http2 or {})[1]
+    if not value then return 1 end
+    if value == 'force' then return 2 end
+end)()
+
 Server = assert(require'http.server'.listen {
     host = config.host[1] or "localhost";
     port = tonumber(config.port[1] or "8000");
-    max_concurrent = 100;
+
+    version        = http_version;
+    max_concurrent = tonumber((config.max_concurrent or {})[1] or "100");
+
     onstream = server_onstream;
-    onerror = server_onerror;
-    cq = EventQueue;
+    onerror  = server_onerror;
+    cq       = EventQueue;
 })
 
 -- Manually call :listen() so that we are bound before calling :localname()
