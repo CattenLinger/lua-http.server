@@ -27,8 +27,10 @@ docker build -t lua-http.server:latest -f docker/Dockerfile .
 docker build -t lua-http.server:alpine-latest -f docker/Dockerfile.alpine .
 
 ## Debian（二进制打包，但成品依旧需要 liblua）
-docker build -t lua-http.server:latest-bin -f docker/Dockerfile.binary.debian
+docker build -t lua-http.server:latest-bin -f docker/Dockerfile.binary.debian .
 ```
+
+注意：因为 lua-http 的 http2 相关实现缺陷，建议只使用 http1。
 
 HTTP 服务器
 ---

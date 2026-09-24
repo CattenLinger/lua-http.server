@@ -6,7 +6,7 @@ SRC_DIR := lua
 
 LUA_INCDIR :=/opt/homebrew/include/lua5.4/
 LUA_LIBDIR :=/opt/homebrew/lib
-LUA_LIBNAME :=liblua.a
+LUA_LIBNAME :=lua
 
 BUILD_PREFIX := ./build.make
 BUILD_SRC    := ./build
