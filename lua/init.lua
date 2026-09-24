@@ -60,11 +60,10 @@ local Loader = require'loader'
 
 ---System module loader
 local systemloader = Loader {
-    require = require_;
     loaded  = package_.loaded;
     loaders = {
         function(modname)
-            local ok, mod = pcall(require_, modname)
+            local ok, mod, file = pcall(require_, modname)
             if ok == false then return nil, mod end;
             return mod
         end
@@ -74,17 +73,18 @@ local systemloader = Loader {
 ---Create a server module loader
 ---Server's module loader exposed in the `loaded` table
 local serverloader = (function()
-
+    -- The global for lua fragments
     local context = {
-        env = setmetatable({}, { __index=function(_, key) return _G[key] end })
+        env = setmetatable({}, { __index=function(_, key) return _G[key] end });
     }
+
     local loaded = {}
 
-    local code_provider if is_embedded then
+    local mod_factory_provider if is_embedded then
         -- if is inside embedded codes
         -- load codes from bundle
         local chunks = package_.chunks.core
-        code_provider = function(name)
+        mod_factory_provider = function(name)
             local chunk = chunks[name]
             if not chunk then return nil, 'bundled "core": not found' end
             
@@ -95,7 +95,7 @@ local serverloader = (function()
         context.path = home..'/lua/?.lua;'..home..'/lua/?/init.lua;'
 
         -- load codes from file
-        code_provider = function(name)
+        mod_factory_provider = function(name)
             local path, err = package_.searchpath(name, context.path)
             if not path then return nil, err end;
 
@@ -104,11 +104,13 @@ local serverloader = (function()
     end
 
     local serverloader = function(modname)
-        local mod = loaded[modname]
+        local mod = loaded[modname] -- check exists module first
         if mod ~= nil then return mod end;
+
+        -- only loaded module is allowed to have non-standard module names
         if string.sub(1, 1) == '@' then return nil, 'forbidden name: '..modname end
 
-        local factory, err = code_provider(modname)
+        local factory, err = mod_factory_provider(modname)
         if not factory then return nil, err end;
 
         local mod = factory(modname)
@@ -122,7 +124,9 @@ local serverloader = (function()
         context = context;
     }
     
-    loaded['loader'] = Loader
+    loaded['loader']  = Loader
+
+    -- Special modules 
     loaded['@luahttpserver.loader'] = obj
     loaded['@luahttpserver.systemloader'] = systemloader;
 

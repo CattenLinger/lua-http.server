@@ -1,7 +1,19 @@
 --[[
     Module Loader
+    ===
 
-    This file is aim to be self-contained under standard lua environment.
+    This module is aim to be self-contained under standard lua environment.
+    
+    After a loader was create and configured, host script usually keeps this object 
+    to controls module loading behavior, leaving just the 'require' method to guest script environment.
+
+    Fields of the loader can be use separately since they are all just exposed references from the internal
+    closure.
+
+    Usages
+    ---
+
+    
 --]]
 local require, package = require, package;
 local rawset = function(t, k, v) rawset(t, k, v); return v end;
@@ -18,7 +30,8 @@ local M = {}
 --]]
 local getters = {}
 
-
+---Create a 'require' method mimic standard lua 'require'
+---function base on a loader
 local function build_legacy_require(self)
     local loaded, load = self.loaded, self.load
 
@@ -26,46 +39,60 @@ local function build_legacy_require(self)
         local mod, err
 
         mod = loaded[modname] if mod ~= nil then return mod end;
-        mod, err = load(modname) if not mod then error(err) end
+        mod, err = load(modname) if not mod and err then error(err) end
 
-        -- caching the module
-        loaded[modname] = mod
+        -- caching the module if success
+        -- if loader returns empty then mark it as loaded using 'true'
+        loaded[modname] = mod or true
 
         return mod
     end
 end
 
+---Create a loader method
 local function build_load_method(self)
     local loaders = self.loaders
+
+    local function each_loader()
+        local idx=#self.loaders + 1
+        return function()
+            idx = idx - 1
+            local v = self.loaders[idx]
+            if not v then return nil end
+            return idx, v
+        end
+    end
 
     return function(modname)
         local errs = {}
 
         -- Scan loader list in reverse order
-        for i=#loaders, 1, -1 do
-            local loader = loaders[i]
+        for idx, loader in each_loader() do
             local mod, err = loader(modname)
             -- if module returns no value, mark it as 'true' (means loaded)
             if not err then return mod or true end
-            
             insert(errs, err)
         end
 
-        return nil, concat(errs, '\t\n')
+        return nil, concat(errs, '\n\t')
     end
 end
 
----Returns legacy `require` to mimic standard lua api
-getters.require = function(self, key) return rawset(self, key, build_legacy_require(self)) end
+---Returns legacy `require` to mimic standard lua api.
+---Loader's 'require' method can be overrided via passing an custom 'require' method.
+function getters:require(key) return rawset(self, key, build_legacy_require(self)) end
 
 ---Return a method to load a module
-getters.load = function(self, key) return rawset(self, key, build_load_method(self)) end
+---Loader's 'load' method can be overrided via passing an custom 'load' method.
+function getters:load(key) return rawset(self, key, build_load_method(self)) end
 
---- Return a default empty loader list
-getters.loaders = function(self, key) return rawset(self, key, {}) end
+---Return a empty loader list if not set
+---When resolving module, loaders are searched in reverse order
+function getters:loaders(key) return rawset(self, key, {}) end
 
---- Return a default empty loaded table
-getters.loaded = function(self, key)  return rawset(self, key, {}) end
+---Return a default empty loaded table if not set
+function getters:loaded(key)  return rawset(self, key, {}) end
+
 
 local loader_mt = {
     __index = function(self, key)
@@ -83,6 +110,7 @@ local loader_mt = {
 --]]
 
 function M.create(data)
+    --- All options here are allowed to be empty for later configuration
     return setmetatable(data, loader_mt)
 end
 
