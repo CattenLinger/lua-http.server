@@ -108,10 +108,10 @@ local function build_load_method(self)
     local loaders = self.loaders
 
     local function each_loader()
-        local idx=#self.loaders + 1
+        local idx=#loaders + 1
         return function()
             idx = idx - 1
-            local v = self.loaders[idx]
+            local v = loaders[idx]
             if not v then return nil end
             return idx, v
         end
@@ -121,7 +121,7 @@ local function build_load_method(self)
         local errs = {}
 
         -- Scan loader list in reverse order
-        for idx, loader in each_loader() do
+        for _, loader in each_loader() do
             local mod, err = loader(modname)
             -- if module returns no value, mark it as 'true' (means loaded)
             if not err then return mod or true end
