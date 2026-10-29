@@ -4,9 +4,11 @@ local lpeg      = require "lpeg"
 local uri_patts = require "lpeg_patterns.uri"
 local uri_ref   = uri_patts.uri_reference * lpeg.P(-1)
 local table     = require'utils'.table
+local log       = require'log'
 
-local log = Logger
-local dbgmod_api = IsDebugMode'api'
+local is_debug_mode_ = require'isdebugmode'
+
+local dbgmod_api = is_debug_mode_'api'
 
 local getters = {}
 local __mt = { __index=getters }

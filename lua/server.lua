@@ -3,7 +3,8 @@ local config  = require'config'(arg)
 local table   = require'utils'.table
 
 --[[ Debug Mode Info ]]
-IsDebugMode = (function()
+-- expose debug indicator as module
+require'@lhsrv.loader'.loaded.isdebugmode = (function()
     local opts = config.debug
     if not opts then return function() return false end end
 
@@ -15,19 +16,14 @@ IsDebugMode = (function()
         return opts[s] or false
     end
 end)()
-local is_debug_mode_ = IsDebugMode()
--- expose debug indicator as module
-require'@lhsrv.loader'.loaded.isdebugmode = IsDebugMode
+local is_debug_mode_ = require'isdebugmode'
 
 local log = (require'log':set_defaults {
     use_color = config.log_color;
     level     = config.log_level or 'INFO'
 }).create()
-
 -- replace logger module, return just the server logger instance
 require'@lhsrv.loader'.loaded.log = function() return log end
-
-Logger = log;
 
 --[[ Entry of the http server ]]--
 local ServerENV, ServerENV_locked = {}, false
@@ -39,11 +35,11 @@ setmetatable(Global, Global_mt_)
 -- move all values out of the default ENV
 for key, value in pairs(Global) do
     rawset(ServerENV, key, value)
-    rawset(Global, key, null)
+    rawset(Global, key, nil)
 end
 
 do --[[ Servet Global ENV Protect]]
-    local dbgmod_server_env = IsDebugMode'env'
+    local dbgmod_server_env = is_debug_mode_'env'
     local warn_str = "[Server ENV] Rejected global %s '%s': server global is protected."
     if dbgmod_server_env then warn_str = warn_str .. ' %s' end
 
@@ -62,7 +58,7 @@ do --[[ Servet Global ENV Protect]]
 end
 
 do --[[ Trapped getmetatable and setmetatable ]]
-    local dbgmod_getsetmetatble = IsDebugMode'env'
+    local dbgmod_getsetmetatble = is_debug_mode_'env'
     local warn_str = '[Server ENV] Attempted to get/set metatable on protected GLOBAL. '
     if dbgmod_getsetmetatble then warn_str = warn_str .. ' %s' end
     local on_warn if not dbgmod_getsetmetatble then
@@ -97,7 +93,7 @@ EventQueue = require'cqueues'.new()
     local clock = require'utils'.clock
     local cqueues = require'cqueues'
     local gc = false
-    local dbgmod_gc = IsDebugMode'gc'
+    local dbgmod_gc = is_debug_mode_'gc'
 
     function _G.NotifyNextGC() gc = true end
 
@@ -132,7 +128,7 @@ local Response = require'response'
 --[[ Server reply method ]]
 local server_onstream, server_onerror do
     local unpack = table.unpack
-    local dbgmod_request = IsDebugMode'request'
+    local dbgmod_request = is_debug_mode_'request'
 
     local log_request = (function()
         -- Use null printer if is not using debug mode
@@ -211,7 +207,7 @@ local http_version = (function()
     if value == 'force' then return 2 end
 end)()
 
-Server = assert(require'http.server'.listen {
+local Server = assert(require'http.server'.listen {
     host = config.host[1] or "localhost";
     port = tonumber(config.port[1] or "8000");
 
@@ -230,7 +226,7 @@ log:info("[Server] Now listening on port %d", bound_port)
 
 -- Start the main server loop
 ServerENV_locked = true
-if not is_debug_mode_ then
+if not is_debug_mode_() then
     local rs, e = pcall(Server.loop, Server)
     if not rs then log:info("[Server] Server exited: %s", e); end
 else

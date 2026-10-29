@@ -25,7 +25,7 @@ if is_embedded then
     -- entry is named `server` under `core`
     local core_chunks  = package_.chunks.core
     local loader_chunk = assert(core_chunks.loader, 'unexpected chunk "core.loader" not found')
-    local entry_chunk  = assert(core_chunks.server, 'unexpceted chunk "core.init" not found')
+    local entry_chunk  = assert(core_chunks.server, 'unexpected chunk "core.init" not found')
     core_chunks.init   = nil; --[[ not needed ]]
     core_chunks.server = nil; --[[ not needed ]]
     

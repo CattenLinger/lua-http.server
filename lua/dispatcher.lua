@@ -1,10 +1,12 @@
 local string  = require'utils'.text
 local table   = require'utils'.table
 local os      = require'utils'.os
-local log     = Logger
+local log     = require'log'
 local package = require'package'
 
-local dbgmod_apploader = IsDebugMode'apploader'
+local is_debug_mode_ = require'isdebugmode'
+
+local dbgmod_apploader = is_debug_mode_'apploader'
 --[[ 
     It's a simple handler that prints request 
     details back to client
@@ -81,18 +83,18 @@ local function dispatcher_normalizecfg(self, cfgval, env)
         self.on_reply = on_reply
 
         if dbgmod_apploader and (self.on_reply == DefaultEmptyDispatcher) then 
-            Logger:debug('[AppLoader] Default `on_reply()` is used')
+            log:debug('[AppLoader] Default `on_reply()` is used')
         end
     end
 
     do --[[ Check if on_error is configured ]]
         if type(env.on_error) == 'function' then
             self.on_error = env.on_error
-            Logger:debug('[AppLoader] No on_error handler is configured.')
+            log:debug('[AppLoader] No on_error handler is configured.')
         end
 
         if dbgmod_apploader and (self.on_error == DefaultOnErrorHandler) then 
-            Logger:debug('[AppLoader] Default `on_error()` is used')
+            log:debug('[AppLoader] Default `on_error()` is used')
         end
     end
 end
